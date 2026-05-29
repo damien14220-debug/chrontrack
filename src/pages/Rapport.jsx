@@ -54,10 +54,25 @@ function Rapport() {
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
   }
 
-const generatePDF = () => {
-  setGenerating(true)
+  const loadImage = (url) => new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = () => resolve(null)
+    img.src = url
+  })
 
-  setTimeout(() => {
+  const generatePDF = async () => {
+    setGenerating(true)
+
+    const logoData = await loadImage('/apple-touch-icon.png')
     const analysesFiltrees = filtrer(analyses)
     const symptomesFiltres = filtrer(symptomes)
 
@@ -73,9 +88,10 @@ const generatePDF = () => {
     const ROUGE = [239, 68, 68]
     const ORANGE = [217, 119, 6]
     const GRIS = [107, 114, 128]
-    const GRIS_CLAIR = [249, 250, 251]
+    const GRIS_CLAIR = [245, 247, 250]
     const BLANC = [255, 255, 255]
     const NOIR = [17, 24, 39]
+    const VERT_FONCE = [3, 105, 80]
 
     const checkPage = (needed = 10) => {
       if (y + needed > pageH - 15) {
@@ -102,16 +118,30 @@ const generatePDF = () => {
       }
     }
 
-    // EN-TÊTE
-    rect(margin, y, contentW, 30, VERT)
-    txt('CrohnTrack', margin + 4, y + 10, 18, BLANC, 'bold')
-    txt('Rapport de suivi - Maladie de Crohn', margin + 4, y + 17, 9, [200, 240, 220])
-    txt(nomPatient || 'Patient', margin + 4, y + 25, 10, BLANC, 'bold')
-    txt(`${formatDate(dateDebut)} au ${formatDate(dateFin)}`, pageW - margin - 70, y + 10, 8, [200, 240, 220])
-    txt(`Genere le ${formatDate(new Date().toISOString().split('T')[0])}`, pageW - margin - 70, y + 16, 7, [180, 220, 200])
-    y += 36
+    // ===== EN-TÊTE =====
+    rect(margin, y, contentW, 38, VERT)
+    rect(margin + contentW - 65, y, 65, 38, VERT_FONCE)
 
-    // RÉSUMÉ
+    if (logoData) {
+      try { pdf.addImage(logoData, 'PNG', margin + 4, y + 7, 22, 22) } catch(e) {}
+    }
+
+    txt('CrohnTrack', margin + 30, y + 14, 20, BLANC, 'bold')
+    txt('Rapport de suivi - Maladie de Crohn', margin + 30, y + 22, 8.5, [200, 240, 220])
+    txt('crohntrack.fr', margin + 30, y + 29, 7.5, [160, 220, 190])
+
+    pdf.setFontSize(12)
+pdf.setFont('helvetica', 'bold')
+pdf.setTextColor(...BLANC)
+const nomW = pdf.getTextWidth(nomPatient || 'Patient')
+pdf.text(nomPatient || 'Patient', pageW - margin - nomW - 3, y + 12)
+
+    txt(`Du ${formatDate(dateDebut)}`, pageW - margin - 63, y + 20, 8, [200, 240, 220])
+    txt(`au ${formatDate(dateFin)}`, pageW - margin - 63, y + 27, 8, [200, 240, 220])
+    txt(`Genere le ${formatDate(new Date().toISOString().split('T')[0])}`, pageW - margin - 63, y + 34, 7, [170, 210, 190])
+    y += 44
+
+    // ===== RÉSUMÉ CARTES =====
     const groupes = (() => {
       const g = {}
       analysesFiltrees.forEach(a => { if (!g[a.date]) g[a.date] = []; g[a.date].push(a) })
@@ -120,157 +150,201 @@ const generatePDF = () => {
     const anormauxTotal = analysesFiltrees.filter(a => isAnormal(a.valeur, a.normal_min, a.normal_max))
 
     const cartes = [
-      { label: 'Bilans', valeur: groupes.length, couleur: VERT, bg: [209, 250, 229] },
-      { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? ROUGE : VERT, bg: anormauxTotal.length > 0 ? [254, 226, 226] : [209, 250, 229] },
-      { label: 'Symptomes', valeur: symptomesFiltres.length, couleur: ORANGE, bg: [254, 243, 199] },
-      { label: 'Traitements', valeur: medicaments.length, couleur: BLEU, bg: [224, 242, 254] },
+      { label: 'Bilans', valeur: groupes.length, couleur: VERT, bg: [209, 250, 229], border: VERT },
+      { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? ROUGE : VERT, bg: anormauxTotal.length > 0 ? [254, 226, 226] : [209, 250, 229], border: anormauxTotal.length > 0 ? ROUGE : VERT },
+      { label: 'Symptomes', valeur: symptomesFiltres.length, couleur: ORANGE, bg: [254, 243, 199], border: ORANGE },
+      { label: 'Traitements', valeur: medicaments.length, couleur: BLEU, bg: [224, 242, 254], border: BLEU },
     ]
+
     const cW = (contentW - 9) / 4
     cartes.forEach((c, i) => {
       const x = margin + i * (cW + 3)
-      rect(x, y, cW, 18, c.bg)
-      txt(String(c.valeur), x + 3, y + 9, 14, c.couleur, 'bold')
-      txt(c.label, x + 3, y + 15, 7, GRIS)
+      rect(x, y, cW, 22, c.bg)
+      pdf.setDrawColor(...c.border)
+      pdf.setLineWidth(0.4)
+      pdf.rect(x, y, cW, 22, 'S')
+      txt(String(c.valeur), x + 3, y + 13, 18, c.couleur, 'bold')
+      txt(c.label, x + 3, y + 19, 7.5, GRIS)
     })
-    y += 24
+    y += 28
 
-    // TRAITEMENTS
+    // ===== TRAITEMENTS =====
     if (medicaments.length > 0) {
       checkPage(15)
-      rect(margin, y, 3, 7, BLEU)
-      txt('Traitements en cours', margin + 5, y + 5.5, 11, NOIR, 'bold')
-      y += 10
-      rect(margin, y, contentW, 7, BLEU)
+      rect(margin, y, 3, 8, BLEU)
+      txt('Traitements en cours', margin + 6, y + 6, 12, NOIR, 'bold')
+      y += 11
+
+      rect(margin, y, contentW, 7.5, BLEU)
       const cMed = [55, 30, 60, 35]
       const hMed = ['Medicament', 'Dosage', 'Frequence', 'Depuis']
       let xc = margin + 2
-      hMed.forEach((h, i) => { txt(h, xc, y + 5, 7, BLANC, 'bold'); xc += cMed[i] })
-      y += 7
+      hMed.forEach((h, i) => { txt(h, xc, y + 5.5, 7.5, BLANC, 'bold'); xc += cMed[i] })
+      y += 7.5
+
       medicaments.forEach((med, idx) => {
         checkPage(7)
-        rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
+        rect(margin, y, contentW, 7, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
         xc = margin + 2
         const row = [med.nom, med.dosage, med.frequence || '—', formatDate(med.date_debut) || '—']
-        row.forEach((v, i) => { txt(v, xc, y + 4.5, 7, i === 0 ? [3, 105, 161] : NOIR, i === 0 ? 'bold' : 'normal', cMed[i] - 2); xc += cMed[i] })
-        y += 6.5
+        row.forEach((v, i) => {
+          txt(v, xc, y + 5, 7.5, i === 0 ? [3, 105, 161] : NOIR, i === 0 ? 'bold' : 'normal', cMed[i] - 2)
+          xc += cMed[i]
+        })
+        y += 7
       })
-      y += 6
+      y += 7
     }
 
-    // RÉSUMÉ VALEURS
+    // ===== RÉSUMÉ VALEURS AVEC BARRES =====
     const typesUniques = [...new Set(analysesFiltrees.map(a => a.type))]
     if (typesUniques.length > 0) {
       checkPage(15)
-      rect(margin, y, 3, 7, VERT)
-      txt('Resume des dernieres valeurs', margin + 5, y + 5.5, 11, NOIR, 'bold')
-      y += 10
+      rect(margin, y, 3, 8, VERT)
+      txt('Resume des dernieres valeurs', margin + 6, y + 6, 12, NOIR, 'bold')
+      y += 11
+
       const bW = (contentW - 4) / 2
       let col = 0
       let rowY = y
+
       typesUniques.forEach(type => {
         const vt = analysesFiltrees.filter(a => a.type === type)
         const last = vt[vt.length - 1]
         if (!last) return
         const anormal = isAnormal(last.valeur, last.normal_min, last.normal_max)
         const x = margin + col * (bW + 4)
-        if (col === 0) { checkPage(18); rowY = y }
-        rect(x, rowY, bW, 16, anormal ? [254, 242, 242] : GRIS_CLAIR)
-        txt(type, x + 3, rowY + 5, 7.5, NOIR, 'bold', bW - 25)
-        txt(`${last.valeur} ${last.unite || ''}`, x + bW - 3, rowY + 5, 8, anormal ? ROUGE : VERT, 'bold')
-        if (last.normal_min !== null) {
+        if (col === 0) { checkPage(20); rowY = y }
+
+        rect(x, rowY, bW, 18, anormal ? [255, 245, 245] : GRIS_CLAIR)
+        pdf.setDrawColor(...(anormal ? [254, 202, 202] : [220, 225, 230]))
+        pdf.setLineWidth(0.3)
+        pdf.rect(x, rowY, bW, 18, 'S')
+
+        txt(type, x + 3, rowY + 6, 8, NOIR, 'bold', bW - 28)
+        const valStr = `${last.valeur} ${last.unite || ''}`
+        pdf.setFontSize(9)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setTextColor(...(anormal ? ROUGE : VERT))
+        const valW = pdf.getTextWidth(valStr)
+        pdf.text(valStr, x + bW - valW - 3, rowY + 6)
+
+        if (last.normal_min !== null && last.normal_max !== null) {
           const pct = Math.min(1, Math.max(0, last.valeur / last.normal_max))
-          rect(x + 3, rowY + 8, bW - 6, 2.5, [229, 231, 235])
-          rect(x + 3, rowY + 8, (bW - 6) * pct, 2.5, anormal ? ROUGE : VERT)
-          txt(`${last.normal_min}-${last.normal_max}`, x + 3, rowY + 14, 6, GRIS)
+          rect(x + 3, rowY + 9, bW - 6, 3, [220, 225, 230])
+          rect(x + 3, rowY + 9, (bW - 6) * pct, 3, anormal ? ROUGE : VERT)
+          txt(`Normal: ${last.normal_min} - ${last.normal_max} ${last.unite || ''}`, x + 3, rowY + 16, 6.5, GRIS)
         }
+
         col++
-        if (col === 2) { col = 0; y = rowY + 20 }
+        if (col === 2) { col = 0; y = rowY + 22 }
       })
-      if (col === 1) y = rowY + 20
-      y += 4
+      if (col === 1) y = rowY + 22
+      y += 6
     }
 
-    // BILANS DÉTAILLÉS
+    // ===== BILANS DÉTAILLÉS =====
     if (groupes.length > 0) {
       checkPage(15)
-      rect(margin, y, 3, 7, VERT)
-      txt('Bilans sanguins', margin + 5, y + 5.5, 11, NOIR, 'bold')
-      y += 10
+      rect(margin, y, 3, 8, VERT)
+      txt('Bilans sanguins detailles', margin + 6, y + 6, 12, NOIR, 'bold')
+      y += 11
+
       groupes.forEach(([date, valeurs]) => {
-        checkPage(20)
+        checkPage(22)
         const nbAn = valeurs.filter(v => isAnormal(v.valeur, v.normal_min, v.normal_max)).length
-        rect(margin, y, contentW, 7, GRIS_CLAIR)
-        txt(formatDate(date), margin + 2, y + 5, 8, NOIR, 'bold')
+
+        rect(margin, y, contentW, 8, GRIS_CLAIR)
+        pdf.setDrawColor(210, 215, 220)
+        pdf.setLineWidth(0.3)
+        pdf.rect(margin, y, contentW, 8, 'S')
+        txt(formatDate(date), margin + 3, y + 5.5, 9, NOIR, 'bold')
+
         if (nbAn > 0) {
-          rect(margin + contentW - 38, y + 1, 36, 5, [254, 226, 226])
-          txt(`⚠ ${nbAn} anormal${nbAn > 1 ? 'aux' : ''}`, margin + contentW - 37, y + 5, 7, ROUGE, 'bold')
+          rect(margin + contentW - 42, y + 1.5, 40, 5, [254, 226, 226])
+          txt(`⚠ ${nbAn} anormal${nbAn > 1 ? 'aux' : ''}`, margin + contentW - 41, y + 5.5, 7.5, ROUGE, 'bold')
         } else {
-          rect(margin + contentW - 26, y + 1, 24, 5, [209, 250, 229])
-          txt('✓ Normal', margin + contentW - 25, y + 5, 7, VERT, 'bold')
+          rect(margin + contentW - 30, y + 1.5, 28, 5, [209, 250, 229])
+          txt('✓ Tout normal', margin + contentW - 29, y + 5.5, 7.5, VERT, 'bold')
         }
-        y += 7
-        rect(margin, y, contentW, 6, VERT)
-        const cAn = [52, 22, 20, 40, 28]
-        const hAn = ['Analyse', 'Valeur', 'Unite', 'Plage', 'Statut']
+        y += 8
+
+        rect(margin, y, contentW, 6.5, VERT)
+        const cAn = [52, 22, 20, 42, 28]
+        const hAn = ['Analyse', 'Valeur', 'Unite', 'Plage normale', 'Statut']
         let xc = margin + 2
-        hAn.forEach((h, i) => { txt(h, xc, y + 4.5, 7, BLANC, 'bold'); xc += cAn[i] })
-        y += 6
+        hAn.forEach((h, i) => { txt(h, xc, y + 4.8, 7.5, BLANC, 'bold'); xc += cAn[i] })
+        y += 6.5
+
         valeurs.forEach((a, idx) => {
-          checkPage(6)
+          checkPage(6.5)
           const an = isAnormal(a.valeur, a.normal_min, a.normal_max)
-          rect(margin, y, contentW, 6, an ? [254, 242, 242] : idx % 2 === 0 ? BLANC : GRIS_CLAIR)
+          rect(margin, y, contentW, 6.5, an ? [255, 245, 245] : idx % 2 === 0 ? BLANC : GRIS_CLAIR)
           xc = margin + 2
-          const row = [a.type, String(a.valeur), a.unite || '—', a.normal_min !== null ? `${a.normal_min}-${a.normal_max}` : '—', an ? '⚠ Anormal' : '✓ Normal']
+          const row = [
+            a.type,
+            String(a.valeur),
+            a.unite || '—',
+            a.normal_min !== null ? `${a.normal_min} - ${a.normal_max}` : '—',
+            an ? '⚠ Anormal' : '✓ Normal'
+          ]
           row.forEach((v, i) => {
             const c = i === 1 || i === 4 ? (an ? ROUGE : VERT) : NOIR
-            txt(v, xc, y + 4.2, 7, c, i === 1 || i === 4 ? 'bold' : 'normal', cAn[i] - 2)
+            txt(v, xc, y + 4.6, 7.5, c, i === 1 || i === 4 ? 'bold' : 'normal', cAn[i] - 2)
             xc += cAn[i]
           })
-          y += 6
+          y += 6.5
         })
-        y += 4
+        y += 5
       })
     }
 
-    // SYMPTÔMES
+    // ===== SYMPTÔMES =====
     if (symptomesFiltres.length > 0) {
       checkPage(15)
-      rect(margin, y, 3, 7, ORANGE)
-      txt('Symptomes', margin + 5, y + 5.5, 11, NOIR, 'bold')
-      y += 10
-      rect(margin, y, contentW, 6, ORANGE)
-      const cSym = [42, 55, 20, 55]
+      rect(margin, y, 3, 8, ORANGE)
+      txt('Symptomes', margin + 6, y + 6, 12, NOIR, 'bold')
+      y += 11
+
+      rect(margin, y, contentW, 6.5, ORANGE)
+      const cSym = [42, 58, 22, 58]
       const hSym = ['Date', 'Symptome', 'Int.', 'Note']
       let xc = margin + 2
-      hSym.forEach((h, i) => { txt(h, xc, y + 4.5, 7, BLANC, 'bold'); xc += cSym[i] })
-      y += 6
+      hSym.forEach((h, i) => { txt(h, xc, y + 4.8, 7.5, BLANC, 'bold'); xc += cSym[i] })
+      y += 6.5
+
       symptomesFiltres.forEach((s, idx) => {
-        checkPage(6)
-        rect(margin, y, contentW, 6, idx % 2 === 0 ? BLANC : [255, 251, 235])
+        checkPage(6.5)
+        rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : [255, 251, 235])
         xc = margin + 2
         const row = [formatDate(s.date), s.type, `${s.intensite}/5`, s.note || '—']
         row.forEach((v, i) => {
           const c = i === 2 ? (s.intensite >= 4 ? ROUGE : s.intensite === 3 ? ORANGE : VERT) : NOIR
-          txt(v, xc, y + 4.2, 7, c, i === 2 ? 'bold' : 'normal', cSym[i] - 2)
+          txt(v, xc, y + 4.6, 7.5, c, i === 2 ? 'bold' : 'normal', cSym[i] - 2)
           xc += cSym[i]
         })
-        y += 6
+        y += 6.5
       })
     }
 
-    // PIED DE PAGE
+    // ===== PIED DE PAGE =====
     const total = pdf.getNumberOfPages()
     for (let i = 1; i <= total; i++) {
       pdf.setPage(i)
-      rect(0, pageH - 10, pageW, 10, GRIS_CLAIR)
-      txt('CrohnTrack — Cree par Damien Chereau — Ne remplace pas un avis medical', margin, pageH - 4, 6.5, GRIS)
-      txt(`${i}/${total}`, pageW - margin, pageH - 4, 6.5, GRIS, 'bold')
+      rect(0, pageH - 12, pageW, 12, [240, 245, 250])
+      pdf.setDrawColor(220, 225, 230)
+      pdf.setLineWidth(0.3)
+      pdf.line(0, pageH - 12, pageW, pageH - 12)
+      txt('CrohnTrack — Cree par Damien Chereau — Ce rapport ne remplace pas un avis medical professionnel', margin, pageH - 5, 6.5, GRIS)
+      pdf.setFontSize(7)
+      pdf.setTextColor(...GRIS)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(`Page ${i} / ${total}`, pageW - margin, pageH - 5)
     }
 
     pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
     setGenerating(false)
-  }, 100)
-}
+  }
 
   if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
@@ -281,9 +355,7 @@ const generatePDF = () => {
     analysesFiltrees.forEach(a => { if (!g[a.date]) g[a.date] = []; g[a.date].push(a) })
     return Object.entries(g).sort((a, b) => new Date(b[0]) - new Date(a[0]))
   })()
-  const anormauxTotal = analysesFiltrees.filter(a => {
-    return a.normal_min !== null && a.normal_max !== null && (a.valeur < a.normal_min || a.valeur > a.normal_max)
-  })
+  const anormauxTotal = analysesFiltrees.filter(a => isAnormal(a.valeur, a.normal_min, a.normal_max))
 
   return (
     <div className="px-6 py-8">
@@ -308,18 +380,31 @@ const generatePDF = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Nom du patient</label>
-            <input type="text" value={nomPatient} onChange={e => setNomPatient(e.target.value)} placeholder="Ton nom complet"
-              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none" />
+            <input
+              type="text"
+              value={nomPatient}
+              onChange={e => setNomPatient(e.target.value)}
+              placeholder="Ton nom complet"
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none"
+            />
           </div>
           <div>
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date de début</label>
-            <input type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none" />
+            <input
+              type="date"
+              value={dateDebut}
+              onChange={e => setDateDebut(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none"
+            />
           </div>
           <div>
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date de fin</label>
-            <input type="date" value={dateFin} onChange={e => setDateFin(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none" />
+            <input
+              type="date"
+              value={dateFin}
+              onChange={e => setDateFin(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none"
+            />
           </div>
         </div>
       </div>
@@ -329,20 +414,28 @@ const generatePDF = () => {
         <h3 className="font-bold text-slate-900 dark:text-white mb-6">👁️ Aperçu du rapport</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Bilans', valeur: groupes.length, couleur: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-            { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? 'text-red-500' : 'text-emerald-500', bg: anormauxTotal.length > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20' },
-            { label: 'Symptômes', valeur: symptomesFiltres.length, couleur: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-            { label: 'Traitements', valeur: medicaments.length, couleur: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
+            { label: 'Bilans', valeur: groupes.length, couleur: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+            { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? 'text-red-500' : 'text-emerald-500', bg: anormauxTotal.length > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+            { label: 'Symptômes', valeur: symptomesFiltres.length, couleur: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' },
+            { label: 'Traitements', valeur: medicaments.length, couleur: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800' },
           ].map(item => (
-            <div key={item.label} className={`${item.bg} rounded-xl p-4 text-center`}>
+            <div key={item.label} className={`${item.bg} border rounded-2xl p-5 text-center`}>
               <p className={`text-3xl font-bold ${item.couleur}`}>{item.valeur}</p>
               <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">{item.label}</p>
             </div>
           ))}
         </div>
-        <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
-          <p className="text-slate-500 dark:text-gray-400 text-sm mb-3">
-            Le PDF sera généré avec toutes tes données pour la période sélectionnée — bilans, résumé des valeurs, symptômes et traitements.
+
+        <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-6 text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <img src="/apple-touch-icon.png" className="w-10 h-10 rounded-xl" alt="logo" />
+            <div className="text-left">
+              <p className="font-bold text-slate-900 dark:text-white">CrohnTrack</p>
+              <p className="text-slate-500 dark:text-gray-400 text-xs">Rapport de suivi médical</p>
+            </div>
+          </div>
+          <p className="text-slate-500 dark:text-gray-400 text-sm mb-4">
+            Le PDF inclut : logo, entête moderne, résumé des valeurs avec barres de progression, bilans détaillés, symptômes et traitements.
           </p>
           <button
             onClick={generatePDF}
