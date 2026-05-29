@@ -28,16 +28,12 @@ function Parametres({ toggleTheme, dark }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => {
-    fetchParametres()
-  }, [])
+  useEffect(() => { fetchParametres() }, [])
 
   const fetchParametres = async () => {
     setLoading(true)
     const { data } = await supabase.from('parametres_analyses').select('*')
-
     if (data && data.length > 0) {
-      // Fusionne les valeurs sauvegardées avec les défauts
       const merged = ANALYSES_DEFAULT.map(def => {
         const saved = data.find(d => d.type === def.type)
         return saved ? { ...def, unite: saved.unite, normal_min: saved.normal_min, normal_max: saved.normal_max } : def
@@ -56,61 +52,53 @@ function Parametres({ toggleTheme, dark }) {
   }
 
   const handleSave = async () => {
-  setSaving(true)
-  
-  for (const p of parametres) {
-    const { data } = await supabase
-      .from('parametres_analyses')
-      .select('*')
-      .eq('type', p.type)
-    
-    if (data && data.length > 0) {
-      await supabase
-        .from('parametres_analyses')
-        .update({ unite: p.unite, normal_min: parseFloat(p.normal_min), normal_max: parseFloat(p.normal_max) })
-        .eq('type', p.type)
-    } else {
-      const { data: { user } } = await supabase.auth.getUser()
-        await supabase
-            .from('parametres_analyses')
-            .insert({ type: p.type, unite: p.unite, normal_min: parseFloat(p.normal_min), normal_max: parseFloat(p.normal_max), user_id: user.id })
+    setSaving(true)
+    for (const p of parametres) {
+      const { data } = await supabase.from('parametres_analyses').select('*').eq('type', p.type)
+      if (data && data.length > 0) {
+        await supabase.from('parametres_analyses')
+          .update({ unite: p.unite, normal_min: parseFloat(p.normal_min), normal_max: parseFloat(p.normal_max) })
+          .eq('type', p.type)
+      } else {
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('parametres_analyses')
+          .insert({ type: p.type, unite: p.unite, normal_min: parseFloat(p.normal_min), normal_max: parseFloat(p.normal_max), user_id: user.id })
+      }
     }
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
   }
 
-  setSaving(false)
-  setSaved(true)
-  setTimeout(() => setSaved(false), 3000)
-}
-  
-  if (loading) return <div className="px-6 py-8 text-gray-500">Chargement...</div>
+  if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
   return (
     <div className="px-6 py-8">
 
-        <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2">⚙️ Paramètres</h2>
-          <p className="text-gray-400">Personnalise tes valeurs normales de référence.</p>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">⚙️ Paramètres</h2>
+          <p className="text-slate-500 dark:text-gray-400">Personnalise tes valeurs normales de référence.</p>
         </div>
         <div className="flex items-center gap-3">
-        <button
+          <button
             onClick={toggleTheme}
-            className="bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 text-white font-semibold px-4 py-3 rounded-xl transition flex items-center gap-2"
-        >
+            className="bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-white font-semibold px-4 py-3 rounded-xl transition flex items-center gap-2"
+          >
             {dark ? '☀️ Mode jour' : '🌙 Mode nuit'}
-        </button>
+          </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50"
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50"
           >
             {saving ? 'Sauvegarde...' : saved ? '✅ Sauvegardé !' : '💾 Sauvegarder'}
           </button>
         </div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div className="grid grid-cols-12 bg-gray-800 px-6 py-3 text-xs text-gray-400 font-semibold uppercase tracking-wider">
+      <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+        <div className="grid grid-cols-12 bg-slate-50 dark:bg-gray-800 px-6 py-3 text-xs text-slate-500 dark:text-gray-400 font-semibold uppercase tracking-wider">
           <span className="col-span-3">Analyse</span>
           <span className="col-span-4">Description</span>
           <span className="col-span-2">Unité</span>
@@ -121,22 +109,22 @@ function Parametres({ toggleTheme, dark }) {
         {parametres.map((p, i) => (
           <div
             key={p.type}
-            className={`grid grid-cols-12 items-center px-6 py-4 border-b border-gray-800/50 last:border-0 gap-2 ${
-              i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-900/50'
+            className={`grid grid-cols-12 items-center px-6 py-4 border-b border-slate-100 dark:border-gray-800/50 last:border-0 gap-2 ${
+              i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-slate-50/50 dark:bg-gray-900/50'
             }`}
           >
             <div className="col-span-3">
-              <p className="font-semibold text-white text-sm">{p.type}</p>
+              <p className="font-semibold text-slate-900 dark:text-white text-sm">{p.type}</p>
             </div>
             <div className="col-span-4">
-              <p className="text-gray-500 text-xs leading-relaxed">{p.description}</p>
+              <p className="text-slate-400 dark:text-gray-500 text-xs leading-relaxed">{p.description}</p>
             </div>
             <div className="col-span-2">
               <input
                 type="text"
                 value={p.unite}
                 onChange={e => handleChange(p.type, 'unite', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-white text-sm focus:border-green-500 outline-none"
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
               />
             </div>
             <div className="col-span-1">
@@ -144,7 +132,7 @@ function Parametres({ toggleTheme, dark }) {
                 type="number"
                 value={p.normal_min}
                 onChange={e => handleChange(p.type, 'normal_min', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-white text-sm focus:border-green-500 outline-none"
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
               />
             </div>
             <div className="col-span-2">
@@ -152,14 +140,14 @@ function Parametres({ toggleTheme, dark }) {
                 type="number"
                 value={p.normal_max}
                 onChange={e => handleChange(p.type, 'normal_max', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-white text-sm focus:border-green-500 outline-none"
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
               />
             </div>
           </div>
         ))}
       </div>
 
-      <p className="text-gray-600 text-xs mt-4 text-center">
+      <p className="text-slate-400 dark:text-gray-600 text-xs mt-4 text-center">
         Ces valeurs sont utilisées comme référence dans tous tes bilans sanguins.
       </p>
 

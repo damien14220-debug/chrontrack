@@ -15,11 +15,11 @@ const SYMPTOMES_PREDEFINIES = [
 ]
 
 const INTENSITES = [
-  { valeur: 1, label: 'Très léger', couleur: 'text-green-400' },
-  { valeur: 2, label: 'Léger', couleur: 'text-lime-400' },
-  { valeur: 3, label: 'Modéré', couleur: 'text-yellow-400' },
-  { valeur: 4, label: 'Intense', couleur: 'text-orange-400' },
-  { valeur: 5, label: 'Très intense', couleur: 'text-red-400' },
+  { valeur: 1, label: 'Très léger', couleur: 'text-emerald-500' },
+  { valeur: 2, label: 'Léger', couleur: 'text-lime-500' },
+  { valeur: 3, label: 'Modéré', couleur: 'text-amber-500' },
+  { valeur: 4, label: 'Intense', couleur: 'text-orange-500' },
+  { valeur: 5, label: 'Très intense', couleur: 'text-red-500' },
 ]
 
 function Symptomes() {
@@ -37,10 +37,7 @@ function Symptomes() {
 
   const fetchSymptomes = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('symptomes')
-      .select('*')
-      .order('date', { ascending: false })
+    const { data } = await supabase.from('symptomes').select('*').order('date', { ascending: false })
     if (data) {
       setSymptomes(data)
       if (data.length > 0) setJoursOuverts({ [data[0].date]: true })
@@ -50,31 +47,20 @@ function Symptomes() {
 
   const toggleSymptome = (label) => {
     setSelections(prev => {
-      if (prev[label]) {
-        const next = { ...prev }
-        delete next[label]
-        return next
-      }
+      if (prev[label]) { const next = { ...prev }; delete next[label]; return next }
       return { ...prev, [label]: 3 }
     })
   }
 
-  const setIntensite = (label, val) => {
-    setSelections(prev => ({ ...prev, [label]: val }))
-  }
+  const setIntensite = (label, val) => setSelections(prev => ({ ...prev, [label]: val }))
 
   const handleSubmit = async () => {
     if (!date) return
     const lignes = []
-
     Object.entries(selections).forEach(([label, intensite]) => {
       lignes.push({ date, type: label, intensite, note })
     })
-
-    if (autreSymptome) {
-      lignes.push({ date, type: autreSymptome, intensite: autreIntensite, note })
-    }
-
+    if (autreSymptome) lignes.push({ date, type: autreSymptome, intensite: autreIntensite, note })
     if (lignes.length === 0) return
     const { data: { user } } = await supabase.auth.getUser()
     lignes.forEach(l => l.user_id = user.id)
@@ -97,10 +83,7 @@ function Symptomes() {
 
   const groupParDate = (data) => {
     const groupes = {}
-    data.forEach(s => {
-      if (!groupes[s.date]) groupes[s.date] = []
-      groupes[s.date].push(s)
-    })
+    data.forEach(s => { if (!groupes[s.date]) groupes[s.date] = []; groupes[s.date].push(s) })
     return Object.entries(groupes).sort((a, b) => new Date(b[0]) - new Date(a[0]))
   }
 
@@ -112,10 +95,10 @@ function Symptomes() {
   const getIntensiteInfo = (val) => INTENSITES.find(i => i.valeur === val) || INTENSITES[2]
 
   const getBadgeJour = (symptomesJour) => {
-    const maxIntensite = Math.max(...symptomesJour.map(s => s.intensite))
-    if (maxIntensite >= 4) return { label: '🔴 Difficile', classe: 'bg-red-500/20 text-red-400 border-red-500/30' }
-    if (maxIntensite === 3) return { label: '🟡 Modéré', classe: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' }
-    return { label: '🟢 Léger', classe: 'bg-green-500/20 text-green-400 border-green-500/30' }
+    const max = Math.max(...symptomesJour.map(s => s.intensite))
+    if (max >= 4) return { label: '🔴 Difficile', classe: 'bg-red-50 dark:bg-red-500/20 text-red-500 border-red-200 dark:border-red-500/30' }
+    if (max === 3) return { label: '🟡 Modéré', classe: 'bg-amber-50 dark:bg-amber-500/20 text-amber-500 border-amber-200 dark:border-amber-500/30' }
+    return { label: '🟢 Léger', classe: 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30' }
   }
 
   const groupes = groupParDate(symptomes)
@@ -125,12 +108,12 @@ function Symptomes() {
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2">🤒 Symptômes</h2>
-          <p className="text-gray-400">Enregistre tes symptômes quotidiens.</p>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">🤒 Symptômes</h2>
+          <p className="text-slate-500 dark:text-gray-400">Enregistre tes symptômes quotidiens.</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-6 py-3 rounded-xl transition"
+          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-xl transition"
         >
           + Ajouter
         </button>
@@ -138,37 +121,37 @@ function Symptomes() {
 
       {/* Formulaire */}
       {showForm && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
-          <h3 className="text-lg font-bold text-white mb-6">📝 Nouveau rapport de symptômes</h3>
+        <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 mb-8 shadow-sm dark:shadow-none">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">📝 Nouveau rapport de symptômes</h3>
 
           <div className="mb-6">
-            <label className="text-gray-400 text-sm mb-2 block">Date</label>
+            <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date</label>
             <input
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white"
+              className="bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white"
             />
           </div>
 
-          <p className="text-gray-400 text-sm mb-3">Sélectionne tes symptômes et leur intensité :</p>
+          <p className="text-slate-500 dark:text-gray-400 text-sm mb-3">Sélectionne tes symptômes :</p>
           <div className="flex flex-col gap-3 mb-6">
             {SYMPTOMES_PREDEFINIES.map(s => {
               const selectionne = selections[s.label] !== undefined
               return (
-                <div key={s.label} className={`rounded-xl border transition ${selectionne ? 'border-yellow-500/40 bg-yellow-950/20' : 'border-gray-800 bg-gray-800/30'}`}>
-                  <button
-                    onClick={() => toggleSymptome(s.label)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                  >
+                <div key={s.label} className={`rounded-xl border transition ${
+                  selectionne
+                    ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/20'
+                    : 'border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-800/30'
+                }`}>
+                  <button onClick={() => toggleSymptome(s.label)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
                     <span className="text-xl">{s.emoji}</span>
-                    <span className={`font-medium ${selectionne ? 'text-yellow-400' : 'text-gray-400'}`}>{s.label}</span>
-                    <span className="ml-auto text-gray-600">{selectionne ? '✓' : '+'}</span>
+                    <span className={`font-medium ${selectionne ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-gray-400'}`}>{s.label}</span>
+                    <span className="ml-auto text-slate-400 dark:text-gray-600">{selectionne ? '✓' : '+'}</span>
                   </button>
-
                   {selectionne && (
                     <div className="px-4 pb-4">
-                      <p className="text-gray-500 text-xs mb-2">Intensité :</p>
+                      <p className="text-slate-400 dark:text-gray-500 text-xs mb-2">Intensité :</p>
                       <div className="flex gap-2">
                         {INTENSITES.map(i => (
                           <button
@@ -176,8 +159,8 @@ function Symptomes() {
                             onClick={() => setIntensite(s.label, i.valeur)}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
                               selections[s.label] === i.valeur
-                                ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
-                                : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-600'
+                                ? 'bg-amber-50 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/50 text-amber-600 dark:text-amber-400'
+                                : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700 text-slate-500 dark:text-gray-500'
                             }`}
                           >
                             {i.valeur} — {i.label}
@@ -190,18 +173,15 @@ function Symptomes() {
               )
             })}
 
-            {/* Autre symptôme */}
-            <div className="rounded-xl border border-gray-700 bg-gray-800/30 p-4">
-              <p className="text-gray-500 text-sm mb-3">Autre symptôme :</p>
-              <div className="flex gap-3 mb-3">
-                <input
-                  type="text"
-                  value={autreSymptome}
-                  onChange={e => setAutreSymptome(e.target.value)}
-                  placeholder="Décris ton symptôme..."
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white text-sm focus:border-yellow-500 outline-none"
-                />
-              </div>
+            <div className="rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/30 p-4">
+              <p className="text-slate-500 dark:text-gray-500 text-sm mb-3">Autre symptôme :</p>
+              <input
+                type="text"
+                value={autreSymptome}
+                onChange={e => setAutreSymptome(e.target.value)}
+                placeholder="Décris ton symptôme..."
+                className="w-full bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-2 text-slate-900 dark:text-white text-sm focus:border-amber-500 outline-none mb-3"
+              />
               {autreSymptome && (
                 <div className="flex gap-2">
                   {INTENSITES.map(i => (
@@ -210,8 +190,8 @@ function Symptomes() {
                       onClick={() => setAutreIntensite(i.valeur)}
                       className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
                         autreIntensite === i.valeur
-                          ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
-                          : 'bg-gray-800 border-gray-700 text-gray-500'
+                          ? 'bg-amber-50 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/50 text-amber-600 dark:text-amber-400'
+                          : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700 text-slate-500 dark:text-gray-500'
                       }`}
                     >
                       {i.valeur} — {i.label}
@@ -223,21 +203,21 @@ function Symptomes() {
           </div>
 
           <div className="mb-6">
-            <label className="text-gray-400 text-sm mb-2 block">Note générale (optionnel)</label>
+            <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Note générale (optionnel)</label>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
               placeholder="Contexte, remarques..."
               rows={2}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-yellow-500 outline-none resize-none"
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm focus:border-amber-500 outline-none resize-none"
             />
           </div>
 
           <div className="flex gap-3">
-            <button onClick={handleSubmit} className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-6 py-3 rounded-xl transition">
+            <button onClick={handleSubmit} className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-xl transition">
               Enregistrer
             </button>
-            <button onClick={() => { setShowForm(false); setSelections({}); setDate('') }} className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold px-6 py-3 rounded-xl transition">
+            <button onClick={() => { setShowForm(false); setSelections({}); setDate('') }} className="bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-semibold px-6 py-3 rounded-xl transition">
               Annuler
             </button>
           </div>
@@ -246,12 +226,12 @@ function Symptomes() {
 
       {/* Liste */}
       {loading ? (
-        <div className="text-center text-gray-500 py-12">Chargement...</div>
+        <div className="text-center text-slate-500 dark:text-gray-500 py-12">Chargement...</div>
       ) : groupes.length === 0 ? (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center">
+        <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-8 text-center shadow-sm">
           <span className="text-4xl mb-4 block">📝</span>
-          <h3 className="text-xl font-bold text-gray-200 mb-2">Aucun symptôme enregistré</h3>
-          <p className="text-gray-500">Clique sur "+ Ajouter" pour commencer.</p>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-gray-200 mb-2">Aucun symptôme enregistré</h3>
+          <p className="text-slate-500 dark:text-gray-500">Clique sur "+ Ajouter" pour commencer.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -259,42 +239,39 @@ function Symptomes() {
             const badge = getBadgeJour(syms)
             const ouvert = joursOuverts[date]
             return (
-              <div key={date} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              <div key={date} className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
                 <button
                   onClick={() => setJoursOuverts(prev => ({ ...prev, [date]: !prev[date] }))}
-                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-800 transition"
+                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 dark:hover:bg-gray-800 transition"
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-2xl">📅</span>
                     <div className="text-left">
-                      <p className="font-bold text-white capitalize">{formatDate(date)}</p>
-                      <p className="text-gray-500 text-sm">{syms.length} symptôme{syms.length > 1 ? 's' : ''}</p>
+                      <p className="font-bold text-slate-900 dark:text-white capitalize">{formatDate(date)}</p>
+                      <p className="text-slate-400 dark:text-gray-500 text-sm">{syms.length} symptôme{syms.length > 1 ? 's' : ''}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs px-3 py-1 rounded-full border ${badge.classe}`}>{badge.label}</span>
-                    <span className="text-gray-500">{ouvert ? '▲' : '▼'}</span>
+                    <span className="text-slate-400 dark:text-gray-500">{ouvert ? '▲' : '▼'}</span>
                   </div>
                 </button>
 
                 {ouvert && (
-                  <div className="border-t border-gray-800">
+                  <div className="border-t border-slate-100 dark:border-gray-800">
                     {syms.map(s => {
                       const info = getIntensiteInfo(s.intensite)
                       return (
-                        <div key={s.id} className="flex items-center justify-between px-6 py-3 border-b border-gray-800/50 last:border-0">
+                        <div key={s.id} className="flex items-center justify-between px-6 py-3 border-b border-slate-100 dark:border-gray-800/50 last:border-0">
                           <div>
-                            <p className="font-medium text-white">{s.type}</p>
-                            {s.note && <p className="text-gray-500 text-xs mt-0.5">{s.note}</p>}
+                            <p className="font-medium text-slate-900 dark:text-white">{s.type}</p>
+                            {s.note && <p className="text-slate-400 dark:text-gray-500 text-xs mt-0.5">{s.note}</p>}
                           </div>
                           <div className="flex items-center gap-4">
                             <span className={`text-sm font-semibold ${info.couleur}`}>
                               {s.intensite}/5 — {info.label}
                             </span>
-                            <button
-                              onClick={() => handleDelete(s.id)}
-                              className="text-gray-600 hover:text-red-400 text-xs transition"
-                            >
+                            <button onClick={() => handleDelete(s.id)} className="text-slate-300 dark:text-gray-600 hover:text-red-400 text-xs transition">
                               🗑️
                             </button>
                           </div>

@@ -3,32 +3,10 @@ import { supabase } from '../supabase'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
-const DESCRIPTIONS = {
-  'CRP': 'Protéine C-réactive — marqueur principal d\'inflammation.',
-  'Ferritine': 'Réserves en fer de l\'organisme.',
-  'Hémoglobine': 'Protéine des globules rouges transportant l\'oxygène.',
-  'VGM': 'Volume Globulaire Moyen — taille des globules rouges.',
-  'Lymphocytes': 'Globules blancs du système immunitaire.',
-  'Plaquettes': 'Cellules de coagulation sanguine.',
-  'Leucocytes': 'Globules blancs — défenses immunitaires.',
-  'Créatinine': 'Déchet musculaire éliminé par les reins.',
-  'Fer sérique': 'Taux de fer circulant dans le sang.',
-  'Transferrine': 'Protéine transportant le fer dans le sang.',
-  'Coeff. saturation transferrine': 'Pourcentage de transferrine chargée en fer.',
-  'Vitamine B12': 'Vitamine essentielle absorbée dans l\'iléon terminal.',
-  'Vitamine D': 'Vitamine importante pour les os et l\'immunité.',
-  'Albumine': 'Principale protéine du sang, marqueur de nutrition.',
-  'Calprotectine fécale': 'Marqueur d\'inflammation intestinale dans les selles.',
-  'VS': 'Vitesse de sédimentation — marqueur général d\'inflammation.',
-  'Acide folique': 'Vitamine B9 — essentielle pour la production des globules rouges.',
-  'Zinc': 'Oligo-élément essentiel pour l\'immunité et la cicatrisation.',
-}
-
 function Rapport() {
   const [analyses, setAnalyses] = useState([])
   const [symptomes, setSymptomes] = useState([])
   const [medicaments, setMedicaments] = useState([])
-  const [repas, setRepas] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [dateDebut, setDateDebut] = useState('')
@@ -37,7 +15,6 @@ function Rapport() {
   const rapportRef = useRef(null)
 
   useEffect(() => {
-    // Dates par défaut : 30 derniers jours
     const today = new Date()
     const il30jours = new Date(today)
     il30jours.setDate(today.getDate() - 30)
@@ -52,17 +29,14 @@ function Rapport() {
       { data: analysesData },
       { data: symptomesData },
       { data: medicamentsData },
-      { data: repasData },
     ] = await Promise.all([
       supabase.from('analyses').select('*').order('date', { ascending: false }),
       supabase.from('symptomes').select('*').order('date', { ascending: false }),
       supabase.from('medicaments').select('*'),
-      supabase.from('repas').select('*').order('date', { ascending: false }),
     ])
     if (analysesData) setAnalyses(analysesData)
     if (symptomesData) setSymptomes(symptomesData)
     if (medicamentsData) setMedicaments(medicamentsData)
-    if (repasData) setRepas(repasData)
     setLoading(false)
   }
 
@@ -78,9 +52,7 @@ function Rapport() {
 
   const analysesFiltrees = filtrer(analyses)
   const symptomesFiltres = filtrer(symptomes)
-  const repasFiltres = filtrer(repas)
 
-  // Grouper analyses par date
   const groupAnalyses = () => {
     const groupes = {}
     analysesFiltrees.forEach(a => {
@@ -99,33 +71,26 @@ function Rapport() {
   const generatePDF = async () => {
     setGenerating(true)
     const element = rapportRef.current
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      useCORS: true,
-    })
+    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF('p', 'mm', 'a4')
     const pdfWidth = pdf.internal.pageSize.getWidth()
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width
     let heightLeft = pdfHeight
     let position = 0
-
     pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight)
     heightLeft -= 297
-
     while (heightLeft > 0) {
       position = heightLeft - pdfHeight
       pdf.addPage()
       pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight)
       heightLeft -= 297
     }
-
     pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
     setGenerating(false)
   }
 
-  if (loading) return <div className="px-6 py-8 text-gray-500">Chargement...</div>
+  if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
   const groupes = groupAnalyses()
   const anormauxTotal = analysesFiltrees.filter(a => isAnormal(a.valeur, a.normal_min, a.normal_max))
@@ -135,54 +100,54 @@ function Rapport() {
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2">📄 Rapport médecin</h2>
-          <p className="text-gray-400">Génère un rapport PDF à partager avec ton médecin.</p>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">📄 Rapport médecin</h2>
+          <p className="text-slate-500 dark:text-gray-400">Génère un rapport PDF à partager avec ton médecin.</p>
         </div>
         <button
           onClick={generatePDF}
           disabled={generating}
-          className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50 flex items-center gap-2"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50 flex items-center gap-2"
         >
           {generating ? '⏳ Génération...' : '⬇️ Télécharger PDF'}
         </button>
       </div>
 
-      {/* Options du rapport */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
-        <h3 className="font-bold text-white mb-4">⚙️ Options du rapport</h3>
+      {/* Options */}
+      <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 mb-8 shadow-sm dark:shadow-none">
+        <h3 className="font-bold text-slate-900 dark:text-white mb-4">⚙️ Options du rapport</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="text-gray-400 text-sm mb-2 block">Nom du patient</label>
+            <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Nom du patient</label>
             <input
               type="text"
               value={nomPatient}
               onChange={e => setNomPatient(e.target.value)}
               placeholder="Ton nom complet"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-green-500 outline-none"
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none"
             />
           </div>
           <div>
-            <label className="text-gray-400 text-sm mb-2 block">Date de début</label>
+            <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date de début</label>
             <input
               type="date"
               value={dateDebut}
               onChange={e => setDateDebut(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-green-500 outline-none"
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none"
             />
           </div>
           <div>
-            <label className="text-gray-400 text-sm mb-2 block">Date de fin</label>
+            <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date de fin</label>
             <input
               type="date"
               value={dateFin}
               onChange={e => setDateFin(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-green-500 outline-none"
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none"
             />
           </div>
         </div>
       </div>
 
-      {/* Aperçu du rapport — ce qui sera exporté en PDF */}
+      {/* Aperçu rapport PDF */}
       <div
         ref={rapportRef}
         style={{ backgroundColor: '#ffffff', color: '#111827', fontFamily: 'Arial, sans-serif', padding: '40px' }}
@@ -191,21 +156,13 @@ function Rapport() {
         <div style={{ borderBottom: '3px solid #10b981', paddingBottom: '20px', marginBottom: '30px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#10b981', margin: '0 0 4px 0' }}>
-                🩺 CrohnTrack
-              </h1>
+              <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#10b981', margin: '0 0 4px 0' }}>🩺 CrohnTrack</h1>
               <p style={{ color: '#6b7280', margin: 0, fontSize: '14px' }}>Rapport de suivi médical</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '16px', margin: '0 0 4px 0' }}>
-                {nomPatient || 'Patient'}
-              </p>
-              <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>
-                Période : {formatDate(dateDebut)} — {formatDate(dateFin)}
-              </p>
-              <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>
-                Généré le {formatDate(new Date().toISOString().split('T')[0])}
-              </p>
+              <p style={{ fontWeight: 'bold', fontSize: '16px', margin: '0 0 4px 0' }}>{nomPatient || 'Patient'}</p>
+              <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>Période : {formatDate(dateDebut)} — {formatDate(dateFin)}</p>
+              <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>Généré le {formatDate(new Date().toISOString().split('T')[0])}</p>
             </div>
           </div>
         </div>
@@ -253,7 +210,7 @@ function Rapport() {
           </div>
         )}
 
-        {/* Bilans sanguins */}
+        {/* Bilans */}
         {groupes.length > 0 && (
           <div style={{ marginBottom: '30px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #10b981', paddingLeft: '12px', marginBottom: '16px' }}>
@@ -291,15 +248,9 @@ function Rapport() {
                             <td style={{ padding: '8px 12px', fontWeight: '500' }}>{a.type}</td>
                             <td style={{ padding: '8px 12px', fontWeight: 'bold', color: anormal ? '#ef4444' : '#10b981' }}>{a.valeur}</td>
                             <td style={{ padding: '8px 12px', color: '#6b7280' }}>{a.unite}</td>
-                            <td style={{ padding: '8px 12px', color: '#6b7280' }}>
-                              {a.normal_min !== null ? `${a.normal_min} — ${a.normal_max}` : '—'}
-                            </td>
+                            <td style={{ padding: '8px 12px', color: '#6b7280' }}>{a.normal_min !== null ? `${a.normal_min} — ${a.normal_max}` : '—'}</td>
                             <td style={{ padding: '8px 12px' }}>
-                              {anormal ? (
-                                <span style={{ color: '#ef4444', fontSize: '12px' }}>⚠️ Anormal</span>
-                              ) : (
-                                <span style={{ color: '#10b981', fontSize: '12px' }}>✅ Normal</span>
-                              )}
+                              {anormal ? <span style={{ color: '#ef4444', fontSize: '12px' }}>⚠️ Anormal</span> : <span style={{ color: '#10b981', fontSize: '12px' }}>✅ Normal</span>}
                             </td>
                           </tr>
                         )
@@ -332,10 +283,7 @@ function Rapport() {
                     <td style={{ padding: '8px 12px', color: '#6b7280' }}>{formatDate(s.date)}</td>
                     <td style={{ padding: '8px 12px', fontWeight: '500' }}>{s.type}</td>
                     <td style={{ padding: '8px 12px' }}>
-                      <span style={{
-                        color: s.intensite >= 4 ? '#ef4444' : s.intensite === 3 ? '#f59e0b' : '#10b981',
-                        fontWeight: 'bold'
-                      }}>
+                      <span style={{ color: s.intensite >= 4 ? '#ef4444' : s.intensite === 3 ? '#f59e0b' : '#10b981', fontWeight: 'bold' }}>
                         {s.intensite}/5
                       </span>
                     </td>
@@ -350,7 +298,7 @@ function Rapport() {
         {/* Pied de page */}
         <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', marginTop: '20px', textAlign: 'center' }}>
           <p style={{ color: '#9ca3af', fontSize: '12px', margin: 0 }}>
-            Rapport généré par CrohnTrack — Application de suivi de la maladie de Crohn
+            Rapport généré par CrohnTrack — Application de suivi de la maladie de Crohn — Créé par Damien Chereau
           </p>
         </div>
       </div>

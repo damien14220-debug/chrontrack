@@ -2,13 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, Legend
+  ResponsiveContainer, ReferenceLine
 } from 'recharts'
-
-const COULEURS = [
-  '#10b981', '#3b82f6', '#f59e0b', '#ef4444',
-  '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'
-]
 
 function Statistiques() {
   const [analyses, setAnalyses] = useState([])
@@ -29,10 +24,8 @@ function Statistiques() {
     setLoading(false)
   }
 
-  // Récupère tous les types d'analyses disponibles
   const types = [...new Set(analyses.map(a => a.type))]
 
-  // Données pour le graphique du type sélectionné
   const donneesGraphique = () => {
     if (!typeSelectionne) return []
     return analyses
@@ -66,29 +59,29 @@ function Statistiques() {
   const params = typeSelectionne ? getParams(typeSelectionne) : null
   const stats = typeSelectionne ? getStats(typeSelectionne) : null
 
-  if (loading) return <div className="px-6 py-8 text-gray-500">Chargement...</div>
+  if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
   return (
     <div className="px-6 py-8">
 
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">📈 Statistiques</h2>
-        <p className="text-gray-400">Visualise l'évolution de tes analyses dans le temps.</p>
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">📈 Statistiques</h2>
+        <p className="text-slate-500 dark:text-gray-400">Visualise l'évolution de tes analyses dans le temps.</p>
       </div>
 
       {analyses.length === 0 ? (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center">
+        <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-8 text-center shadow-sm">
           <span className="text-4xl mb-4 block">📊</span>
-          <h3 className="text-xl font-bold text-gray-200 mb-2">Aucune donnée disponible</h3>
-          <p className="text-gray-500">Enregistre des bilans sanguins pour voir les graphiques.</p>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-gray-200 mb-2">Aucune donnée disponible</h3>
+          <p className="text-slate-500 dark:text-gray-500">Enregistre des bilans sanguins pour voir les graphiques.</p>
         </div>
       ) : (
         <>
-          {/* Sélecteur de type */}
+          {/* Sélecteur */}
           <div className="mb-8">
-            <p className="text-gray-400 text-sm mb-3">Sélectionne une analyse à visualiser :</p>
+            <p className="text-slate-500 dark:text-gray-400 text-sm mb-3">Sélectionne une analyse à visualiser :</p>
             <div className="flex flex-wrap gap-2">
-              {types.map((type, i) => {
+              {types.map(type => {
                 const p = getParams(type)
                 const s = getStats(type)
                 const anormal = p && s ? isAnormal(s.derniere, p.normal_min, p.normal_max) : false
@@ -98,10 +91,10 @@ function Statistiques() {
                     onClick={() => setTypeSelectionne(type)}
                     className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${
                       typeSelectionne === type
-                        ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                        ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/50'
                         : anormal
-                        ? 'bg-red-900/20 text-red-400 border-red-800/50 hover:bg-red-900/30'
-                        : 'bg-gray-900 text-gray-400 border-gray-800 hover:bg-gray-800 hover:text-white'
+                        ? 'bg-red-50 dark:bg-red-900/20 text-red-500 border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/30'
+                        : 'bg-white dark:bg-gray-900 text-slate-600 dark:text-gray-400 border-slate-200 dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-gray-800'
                     }`}
                   >
                     {anormal ? '⚠️ ' : ''}{type}
@@ -113,37 +106,37 @@ function Statistiques() {
 
           {/* Graphique */}
           {typeSelectionne && donnees.length > 0 && (
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+            <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 mb-6 shadow-sm dark:shadow-none">
 
               {/* Stats rapides */}
               {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-gray-800 rounded-xl p-4 text-center">
-                    <p className="text-gray-500 text-xs mb-1">Dernière valeur</p>
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                    <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Dernière valeur</p>
                     <p className={`text-2xl font-bold ${
                       params && isAnormal(stats.derniere, params.normal_min, params.normal_max)
-                        ? 'text-red-400' : 'text-green-400'
+                        ? 'text-red-500' : 'text-emerald-500'
                     }`}>{stats.derniere}</p>
                   </div>
-                  <div className="bg-gray-800 rounded-xl p-4 text-center">
-                    <p className="text-gray-500 text-xs mb-1">Moyenne</p>
-                    <p className="text-2xl font-bold text-blue-400">{stats.moy}</p>
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                    <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Moyenne</p>
+                    <p className="text-2xl font-bold text-sky-500">{stats.moy}</p>
                   </div>
-                  <div className="bg-gray-800 rounded-xl p-4 text-center">
-                    <p className="text-gray-500 text-xs mb-1">Min / Max</p>
-                    <p className="text-lg font-bold text-gray-300">{stats.min} / {stats.max}</p>
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                    <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Min / Max</p>
+                    <p className="text-lg font-bold text-slate-700 dark:text-gray-300">{stats.min} / {stats.max}</p>
                   </div>
-                  <div className="bg-gray-800 rounded-xl p-4 text-center">
-                    <p className="text-gray-500 text-xs mb-1">Mesures</p>
-                    <p className="text-2xl font-bold text-purple-400">{stats.total}</p>
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                    <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Mesures</p>
+                    <p className="text-2xl font-bold text-purple-500">{stats.total}</p>
                   </div>
                 </div>
               )}
 
-              <h3 className="text-lg font-bold text-white mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
                 Évolution — {typeSelectionne}
                 {params && (
-                  <span className="text-sm text-gray-500 font-normal ml-2">
+                  <span className="text-sm text-slate-400 dark:text-gray-500 font-normal ml-2">
                     (normal : {params.normal_min} — {params.normal_max} {params.unite})
                   </span>
                 )}
@@ -151,13 +144,16 @@ function Statistiques() {
 
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={donnees} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                  <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="date" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '12px' }}
-                    labelStyle={{ color: '#9ca3af' }}
-                    itemStyle={{ color: '#10b981' }}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      color: '#0f172a'
+                    }}
                   />
                   {params && (
                     <>
@@ -179,7 +175,7 @@ function Statistiques() {
           )}
 
           {typeSelectionne && donnees.length < 2 && (
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 text-center text-gray-500">
+            <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 text-center text-slate-500 dark:text-gray-500 shadow-sm">
               <p>📊 Enregistre au moins 2 bilans pour voir l'évolution sur le graphique.</p>
             </div>
           )}
