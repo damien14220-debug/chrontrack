@@ -22,7 +22,7 @@ const ANALYSES_DEFAULT = [
   { type: 'Zinc', unite: 'µmol/L', normal_min: 10, normal_max: 18, description: 'Oligo-élément important pour l\'immunité et la cicatrisation. Fréquemment bas dans le Crohn.' },
 ]
 
-function Parametres({ t, toggleTheme }) {
+function Parametres({ toggleTheme, dark }) {
   const [parametres, setParametres] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -93,12 +93,12 @@ function Parametres({ t, toggleTheme }) {
           <p className="text-gray-400">Personnalise tes valeurs normales de référence.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+        <button
             onClick={toggleTheme}
-            className="bg-gray-800 hover:bg-gray-700 text-white font-semibold px-4 py-3 rounded-xl transition flex items-center gap-2"
-          >
-            {t?.dark ? '☀️ Mode jour' : '🌙 Mode nuit'}
-          </button>
+            className="bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 text-white font-semibold px-4 py-3 rounded-xl transition flex items-center gap-2"
+        >
+            {dark ? '☀️ Mode jour' : '🌙 Mode nuit'}
+        </button>
           <button
             onClick={handleSave}
             disabled={saving}
