@@ -114,6 +114,9 @@ function Analyses() {
   const [autreValeur, setAutreValeur] = useState('')
   const [autreUnite, setAutreUnite] = useState('')
   const [bilansOuverts, setBilansOuverts] = useState({})
+  const [editAnalyse, setEditAnalyse] = useState(null)
+  const [editValeur, setEditValeur] = useState('')
+  const [showEditModal, setShowEditModal] = useState(false)
 
   useEffect(() => { fetchAll() }, [])
 
@@ -155,6 +158,23 @@ function Analyses() {
     setAutreUnite('')
     setDate('')
     setShowForm(false)
+    fetchAll()
+  }
+
+  const handleEdit = (analyse) => {
+    setEditAnalyse(analyse)
+    setEditValeur(String(analyse.valeur))
+    setShowEditModal(true)
+  }
+
+  const handleEditSubmit = async () => {
+    if (!editValeur) return
+    await supabase
+      .from('analyses')
+      .update({ valeur: parseFloat(editValeur) })
+      .eq('id', editAnalyse.id)
+    setShowEditModal(false)
+    setEditAnalyse(null)
     fetchAll()
   }
 
@@ -205,7 +225,6 @@ function Analyses() {
       {showForm && (
         <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 mb-8 shadow-sm dark:shadow-none">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">🔬 Nouveau bilan sanguin</h3>
-
           <div className="mb-6">
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date du bilan</label>
             <input
@@ -215,7 +234,6 @@ function Analyses() {
               className="bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white"
             />
           </div>
-
           {parametres.length === 0 ? (
             <div className="text-center text-slate-500 dark:text-gray-500 py-8">
               <p>⚙️ Aucun paramètre configuré.</p>
@@ -248,7 +266,6 @@ function Analyses() {
                   <span className="text-slate-400 dark:text-gray-600 text-xs">{p.normal_min} — {p.normal_max}</span>
                 </div>
               ))}
-
               <div className="grid grid-cols-4 items-center px-4 py-3 bg-slate-50 dark:bg-gray-800/30 border-t border-slate-200 dark:border-gray-700 gap-2">
                 <input type="text" value={autreNom} onChange={e => setAutreNom(e.target.value)} placeholder="Autre analyse..." className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none" />
                 <input type="number" value={autreValeur} onChange={e => setAutreValeur(e.target.value)} placeholder="—" className="w-24 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none" />
@@ -257,7 +274,6 @@ function Analyses() {
               </div>
             </div>
           )}
-
           <div className="flex gap-3">
             <button onClick={handleSubmit} className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl transition">
               Enregistrer le bilan
@@ -340,6 +356,7 @@ function Analyses() {
                               ) : (
                                 <span className="text-emerald-500 text-xs">✅ Normal</span>
                               )}
+                              <button onClick={() => handleEdit(analyse)} className="text-slate-300 dark:text-gray-600 hover:text-sky-400 text-xs transition">✏️</button>
                               <button onClick={() => handleDelete(analyse.id)} className="text-slate-300 dark:text-gray-600 hover:text-red-400 text-xs transition">🗑️</button>
                             </div>
                           </div>
@@ -358,6 +375,48 @@ function Analyses() {
           })}
         </div>
       )}
+
+      {/* Modal modification */}
+      {showEditModal && editAnalyse && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              ✏️ Modifier — {editAnalyse.type}
+            </h3>
+            <p className="text-slate-500 dark:text-gray-400 text-sm mb-4">
+              Plage normale : {editAnalyse.normal_min} — {editAnalyse.normal_max} {editAnalyse.unite}
+            </p>
+            <div className="mb-6">
+              <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Nouvelle valeur</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  value={editValeur}
+                  onChange={e => setEditValeur(e.target.value)}
+                  className="flex-1 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none text-lg font-bold"
+                  autoFocus
+                />
+                <span className="text-slate-400 dark:text-gray-500">{editAnalyse.unite}</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleEditSubmit}
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition"
+              >
+                Enregistrer
+              </button>
+              <button
+                onClick={() => { setShowEditModal(false); setEditAnalyse(null) }}
+                className="flex-1 bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-semibold py-3 rounded-xl transition"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
