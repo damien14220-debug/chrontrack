@@ -44,7 +44,8 @@ function Medicaments() {
       await supabase.from('medicaments').update(form).eq('id', editId)
       setEditId(null)
     } else {
-      await supabase.from('medicaments').insert([form])
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('medicaments').insert([{ ...form, user_id: user.id }])
     }
     setForm({ nom: '', dosage: '', frequence: '', heure_rappel: '', date_debut: '', note: '' })
     setShowForm(false)

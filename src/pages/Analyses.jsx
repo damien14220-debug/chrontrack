@@ -162,6 +162,8 @@ function Analyses() {
     }
 
     if (lignes.length === 0) return
+    const { data: { user } } = await supabase.auth.getUser()
+    lignes.forEach(l => l.user_id = user.id)
     await supabase.from('analyses').insert(lignes)
     setValeurs({})
     setAutreNom('')

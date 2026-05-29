@@ -39,7 +39,8 @@ function Repas() {
 
   const handleSubmit = async () => {
     if (!form.date || !form.moment || !form.aliments) return
-    await supabase.from('repas').insert([form])
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('repas').insert([{ ...form, user_id: user.id }])
     setForm({ date: '', moment: '', aliments: '', reaction: '', note: '' })
     setShowForm(false)
     fetchRepas()
