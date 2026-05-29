@@ -87,7 +87,7 @@ function App() {
       case 'repas': return <Repas t={t} />
       case 'medicaments': return <Medicaments t={t} />
       case 'rapport': return <Rapport t={t} />
-      case 'parametres': return <Parametres t={t} />
+      case 'parametres': return <Parametres t={t} toggleTheme={toggleTheme} />
       default: return <Dashboard t={t} />
     }
   }
