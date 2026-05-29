@@ -16,17 +16,13 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Vérifie la session au chargement
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
-
-    // Écoute les changements de session
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
-
     return () => subscription.unsubscribe()
   }, [])
 
@@ -51,13 +47,13 @@ function App() {
   }
 
   const navItems = [
-    { id: 'dashboard', label: 'Tableau de bord', icon: '🏠' },
+    { id: 'dashboard', label: 'Accueil', icon: '🏠' },
     { id: 'analyses', label: 'Analyses', icon: '📊' },
-    { id: 'statistiques', label: 'Statistiques', icon: '📈' },
+    { id: 'statistiques', label: 'Stats', icon: '📈' },
     { id: 'symptomes', label: 'Symptômes', icon: '🤒' },
     { id: 'repas', label: 'Repas', icon: '🍽️' },
-    { id: 'medicaments', label: 'Médicaments', icon: '💊' },
-    { id: 'rapport', label: 'Rapport médecin', icon: '📄' },
+    { id: 'medicaments', label: 'Médocs', icon: '💊' },
+    { id: 'rapport', label: 'Rapport', icon: '📄' },
   ]
 
   if (loading) {
@@ -71,16 +67,13 @@ function App() {
     )
   }
 
-  // Si pas connecté → page de login
-  if (!session) {
-    return <Login />
-  }
+  if (!session) return <Login />
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
 
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 border-r border-gray-800 min-h-screen p-6 flex flex-col">
+      {/* ===== SIDEBAR DESKTOP ===== */}
+      <aside className="hidden md:flex w-64 bg-gray-900 border-r border-gray-800 min-h-screen p-6 flex-col">
         <div className="flex items-center gap-3 mb-10">
           <span className="text-2xl">🩺</span>
           <h1 className="text-xl font-bold text-green-400">CrohnTrack</h1>
@@ -103,11 +96,8 @@ function App() {
           ))}
         </nav>
 
-        {/* Infos utilisateur + déconnexion */}
         <div className="border-t border-gray-800 pt-4 mt-4">
-          <p className="text-gray-600 text-xs mb-3 truncate px-1">
-            {session.user.email}
-          </p>
+          <p className="text-gray-600 text-xs mb-3 truncate px-1">{session.user.email}</p>
           <button
             onClick={() => setPage('parametres')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium mb-2 ${
@@ -129,11 +119,49 @@ function App() {
         </div>
       </aside>
 
-      {/* Contenu principal */}
-      <main className="flex-1 overflow-auto">
-        {renderPage()}
-      </main>
+      {/* ===== CONTENU PRINCIPAL ===== */}
+      <div className="flex-1 flex flex-col min-h-screen">
 
+        {/* Header mobile */}
+        <header className="md:hidden bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🩺</span>
+            <h1 className="text-lg font-bold text-green-400">CrohnTrack</h1>
+          </div>
+          <button
+            onClick={() => setPage('parametres')}
+            className="text-gray-400 text-xl"
+          >
+            ⚙️
+          </button>
+        </header>
+
+        {/* Contenu */}
+        <main className="flex-1 overflow-auto pb-24 md:pb-0">
+          {renderPage()}
+        </main>
+
+        {/* ===== BARRE DE NAV MOBILE EN BAS ===== */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 px-2 py-2 z-50">
+          <div className="flex items-center justify-around">
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setPage(item.id)}
+                className={`flex flex-col items-center gap-1 px-2 py-1 rounded-xl transition flex-1 ${
+                  page === item.id
+                    ? 'text-green-400'
+                    : 'text-gray-600 hover:text-gray-400'
+                }`}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-xs font-medium">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+
+      </div>
     </div>
   )
 }
