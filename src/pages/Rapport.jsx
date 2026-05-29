@@ -86,27 +86,47 @@ function Rapport() {
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
   }
 
-  const generatePDF = async () => {
-    setGenerating(true)
-    const element = rapportRef.current
-    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF('p', 'mm', 'a4')
-    const pdfWidth = pdf.internal.pageSize.getWidth()
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-    let heightLeft = pdfHeight
-    let position = 0
-    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight)
-    heightLeft -= 297
-    while (heightLeft > 0) {
-      position = heightLeft - pdfHeight
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight)
-      heightLeft -= 297
-    }
-    pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
-    setGenerating(false)
+const generatePDF = async () => {
+  setGenerating(true)
+  const element = rapportRef.current
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    windowWidth: 800,
+  })
+
+  const imgData = canvas.toDataURL('image/png')
+  const pdf = new jsPDF('p', 'mm', 'a4')
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const imgWidth = pageWidth
+  const imgHeight = (canvas.height * imgWidth) / canvas.width
+  const margin = 10
+
+  const usablePageHeight = pageHeight - margin * 2
+  let yPosition = 0
+
+  while (yPosition < imgHeight) {
+    if (yPosition > 0) pdf.addPage()
+    pdf.addImage(
+      imgData,
+      'PNG',
+      0,
+      margin - yPosition,
+      imgWidth,
+      imgHeight
+    )
+    // Masque le débordement avec des rectangles blancs
+    pdf.setFillColor(255, 255, 255)
+    pdf.rect(0, 0, pageWidth, margin, 'F')
+    pdf.rect(0, pageHeight - margin, pageWidth, margin, 'F')
+    yPosition += usablePageHeight
   }
+
+  pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
+  setGenerating(false)
+}
 
   if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
