@@ -54,9 +54,10 @@ function Rapport() {
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
   }
 
-  const generatePDF = () => {
-    setGenerating(true)
+const generatePDF = () => {
+  setGenerating(true)
 
+  setTimeout(() => {
     const analysesFiltrees = filtrer(analyses)
     const symptomesFiltres = filtrer(symptomes)
 
@@ -67,7 +68,6 @@ function Rapport() {
     const contentW = pageW - margin * 2
     let y = margin
 
-    // Couleurs
     const VERT = [5, 150, 105]
     const BLEU = [14, 165, 233]
     const ROUGE = [239, 68, 68]
@@ -78,47 +78,40 @@ function Rapport() {
     const NOIR = [17, 24, 39]
 
     const checkPage = (needed = 10) => {
-      if (y + needed > pageH - margin) {
+      if (y + needed > pageH - 15) {
         pdf.addPage()
         y = margin
       }
     }
 
-    const drawRect = (x, ry, w, h, color, radius = 0) => {
+    const rect = (x, ry, w, h, color) => {
       pdf.setFillColor(...color)
-      pdf.roundedRect(x, ry, w, h, radius, radius, 'F')
+      pdf.rect(x, ry, w, h, 'F')
     }
 
-    const writeText = (text, x, ry, size, color, style = 'normal', maxWidth = null) => {
+    const txt = (text, x, ry, size, color, style = 'normal', maxW = null) => {
       pdf.setFontSize(size)
       pdf.setTextColor(...color)
       pdf.setFont('helvetica', style)
-      if (maxWidth) {
-        const lines = pdf.splitTextToSize(String(text), maxWidth)
+      const str = String(text)
+      if (maxW) {
+        const lines = pdf.splitTextToSize(str, maxW)
         pdf.text(lines, x, ry)
-        return lines.length * size * 0.4
+      } else {
+        pdf.text(str, x, ry)
       }
-      pdf.text(String(text), x, ry)
-      return size * 0.4
     }
 
-    // ===== EN-TÊTE =====
-    drawRect(margin, y, contentW, 35, VERT, 4)
-    writeText('CrohnTrack', margin + 5, y + 10, 20, BLANC, 'bold')
-    writeText('Rapport de suivi medical - Maladie de Crohn', margin + 5, y + 17, 10, [200, 240, 220])
-    writeText(nomPatient || 'Patient', margin + contentW - 5, y + 9, 13, BLANC, 'bold')
-    pdf.setFont('helvetica', 'normal')
-    writeText(`${formatDate(dateDebut)} - ${formatDate(dateFin)}`, margin + contentW - 5, y + 15, 9, [200, 240, 220])
-    writeText(`Genere le ${formatDate(new Date().toISOString().split('T')[0])}`, margin + contentW - 5, y + 20, 8, [180, 220, 200])
-    // Alignement droite
-    pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(13)
-    pdf.setTextColor(255, 255, 255)
-    const nomW = pdf.getTextWidth(nomPatient || 'Patient')
-    pdf.text(nomPatient || 'Patient', pageW - margin - nomW, y + 9)
-    y += 42
+    // EN-TÊTE
+    rect(margin, y, contentW, 30, VERT)
+    txt('CrohnTrack', margin + 4, y + 10, 18, BLANC, 'bold')
+    txt('Rapport de suivi - Maladie de Crohn', margin + 4, y + 17, 9, [200, 240, 220])
+    txt(nomPatient || 'Patient', margin + 4, y + 25, 10, BLANC, 'bold')
+    txt(`${formatDate(dateDebut)} au ${formatDate(dateFin)}`, pageW - margin - 70, y + 10, 8, [200, 240, 220])
+    txt(`Genere le ${formatDate(new Date().toISOString().split('T')[0])}`, pageW - margin - 70, y + 16, 7, [180, 220, 200])
+    y += 36
 
-    // ===== RÉSUMÉ =====
+    // RÉSUMÉ
     const groupes = (() => {
       const g = {}
       analysesFiltrees.forEach(a => { if (!g[a.date]) g[a.date] = []; g[a.date].push(a) })
@@ -132,211 +125,152 @@ function Rapport() {
       { label: 'Symptomes', valeur: symptomesFiltres.length, couleur: ORANGE, bg: [254, 243, 199] },
       { label: 'Traitements', valeur: medicaments.length, couleur: BLEU, bg: [224, 242, 254] },
     ]
-
-    const carteW = (contentW - 9) / 4
+    const cW = (contentW - 9) / 4
     cartes.forEach((c, i) => {
-      const x = margin + i * (carteW + 3)
-      drawRect(x, y, carteW, 22, c.bg, 3)
-      pdf.setFontSize(16)
-      pdf.setTextColor(...c.couleur)
-      pdf.setFont('helvetica', 'bold')
-      const numW = pdf.getTextWidth(String(c.valeur))
-      pdf.text(String(c.valeur), x + carteW / 2 - numW / 2, y + 11)
-      pdf.setFontSize(8)
-      pdf.setTextColor(...GRIS)
-      pdf.setFont('helvetica', 'normal')
-      const lblW = pdf.getTextWidth(c.label)
-      pdf.text(c.label, x + carteW / 2 - lblW / 2, y + 18)
+      const x = margin + i * (cW + 3)
+      rect(x, y, cW, 18, c.bg)
+      txt(String(c.valeur), x + 3, y + 9, 14, c.couleur, 'bold')
+      txt(c.label, x + 3, y + 15, 7, GRIS)
     })
-    y += 28
+    y += 24
 
-    // ===== TRAITEMENTS =====
+    // TRAITEMENTS
     if (medicaments.length > 0) {
-      checkPage(20)
-      drawRect(margin, y, 3, 8, BLEU, 1)
-      writeText('Traitements en cours', margin + 6, y + 6, 13, NOIR, 'bold')
-      y += 12
-
-      // En-tête tableau
-      drawRect(margin, y, contentW, 8, BLEU, 2)
-      const colsMed = [55, 35, 55, 40]
-      const headersMed = ['Medicament', 'Dosage', 'Frequence', 'Depuis']
-      let xCol = margin + 2
-      headersMed.forEach((h, i) => {
-        writeText(h, xCol, y + 5.5, 8, BLANC, 'bold')
-        xCol += colsMed[i]
-      })
-      y += 8
-
-      medicaments.forEach((med, idx) => {
-        checkPage(8)
-        drawRect(margin, y, contentW, 7, idx % 2 === 0 ? BLANC : GRIS_CLAIR, 0)
-        xCol = margin + 2
-        const rowData = [med.nom, med.dosage, med.frequence || '—', formatDate(med.date_debut) || '—']
-        rowData.forEach((val, i) => {
-          writeText(val, xCol, y + 5, 8, i === 0 ? [3, 105, 161] : NOIR, i === 0 ? 'bold' : 'normal', colsMed[i] - 2)
-          xCol += colsMed[i]
-        })
-        y += 7
-      })
-      y += 8
-    }
-
-    // ===== RÉSUMÉ VALEURS =====
-    const typesUniques = [...new Set(analysesFiltrees.map(a => a.type))]
-    if (typesUniques.length > 0) {
-      checkPage(20)
-      drawRect(margin, y, 3, 8, VERT, 1)
-      writeText('Resume des dernieres valeurs', margin + 6, y + 6, 13, NOIR, 'bold')
-      y += 12
-
-      const barW = (contentW - 6) / 2
-      let col = 0
-      let rowY = y
-
-      typesUniques.forEach(type => {
-        const valeursType = analysesFiltrees.filter(a => a.type === type)
-        const derniere = valeursType[valeursType.length - 1]
-        if (!derniere) return
-
-        const anormal = isAnormal(derniere.valeur, derniere.normal_min, derniere.normal_max)
-        const x = margin + col * (barW + 6)
-
-        checkPage(20)
-        if (col === 0) rowY = y
-
-        drawRect(x, rowY, barW, 18, anormal ? [254, 242, 242] : GRIS_CLAIR, 3)
-
-        writeText(type, x + 3, rowY + 5, 8, NOIR, 'bold', barW - 20)
-        pdf.setFontSize(9)
-        pdf.setTextColor(...(anormal ? ROUGE : VERT))
-        pdf.setFont('helvetica', 'bold')
-        const valStr = `${derniere.valeur} ${derniere.unite || ''}`
-        const valW = pdf.getTextWidth(valStr)
-        pdf.text(valStr, x + barW - valW - 3, rowY + 5)
-
-        if (derniere.normal_min !== null && derniere.normal_max !== null) {
-          const pct = Math.min(1, Math.max(0, derniere.valeur / derniere.normal_max))
-          drawRect(x + 3, rowY + 8, barW - 6, 3, [229, 231, 235], 1)
-          drawRect(x + 3, rowY + 8, (barW - 6) * pct, 3, anormal ? ROUGE : VERT, 1)
-          writeText(`Normal: ${derniere.normal_min}-${derniere.normal_max}`, x + 3, rowY + 16, 7, GRIS)
-        }
-
-        col++
-        if (col === 2) {
-          col = 0
-          y = rowY + 22
-        }
-      })
-
-      if (col === 1) y = rowY + 22
-      y += 6
-    }
-
-    // ===== BILANS DÉTAILLÉS =====
-    if (groupes.length > 0) {
-      checkPage(20)
-      drawRect(margin, y, 3, 8, VERT, 1)
-      writeText('Bilans sanguins détaillés', margin + 6, y + 6, 13, NOIR, 'bold')
-      y += 12
-
-      groupes.forEach(([date, valeurs]) => {
-        checkPage(25)
-        const nbAnormaux = valeurs.filter(v => isAnormal(v.valeur, v.normal_min, v.normal_max)).length
-
-        drawRect(margin, y, contentW, 8, GRIS_CLAIR, 2)
-        writeText(`  ${formatDate(date)}`, margin + 2, y + 5.5, 9, NOIR, 'bold')
-        if (nbAnormaux > 0) {
-          drawRect(margin + contentW - 42, y + 1, 40, 6, [254, 226, 226], 2)
-          writeText(`⚠ ${nbAnormaux} anormal${nbAnormaux > 1 ? 'aux' : ''}`, margin + contentW - 41, y + 5.5, 7, ROUGE, 'bold')
-        } else {
-          drawRect(margin + contentW - 30, y + 1, 28, 6, [209, 250, 229], 2)
-          writeText('✓ Normal', margin + contentW - 29, y + 5.5, 7, VERT, 'bold')
-        }
-        y += 9
-
-        // En-tête
-        drawRect(margin, y, contentW, 7, VERT, 0)
-        const colsAn = [55, 22, 20, 40, 30]
-        const headersAn = ['Analyse', 'Valeur', 'Unite', 'Plage normale', 'Statut']
-        xCol = margin + 2
-        headersAn.forEach((h, i) => {
-          writeText(h, xCol, y + 5, 7.5, BLANC, 'bold')
-          xCol += colsAn[i]
-        })
-        y += 7
-
-        valeurs.forEach((a, idx) => {
-          checkPage(7)
-          const anormal = isAnormal(a.valeur, a.normal_min, a.normal_max)
-          drawRect(margin, y, contentW, 6.5, anormal ? [254, 242, 242] : idx % 2 === 0 ? BLANC : GRIS_CLAIR, 0)
-          xCol = margin + 2
-          const rowData = [
-            a.type,
-            String(a.valeur),
-            a.unite || '—',
-            a.normal_min !== null ? `${a.normal_min} - ${a.normal_max}` : '—',
-            anormal ? '⚠ Anormal' : '✓ Normal'
-          ]
-          rowData.forEach((val, i) => {
-            const color = i === 1 ? (anormal ? ROUGE : VERT) : i === 4 ? (anormal ? ROUGE : VERT) : NOIR
-            writeText(val, xCol, y + 4.5, 7.5, color, i === 1 || i === 4 ? 'bold' : 'normal', colsAn[i] - 2)
-            xCol += colsAn[i]
-          })
-          y += 6.5
-        })
-        y += 6
-      })
-    }
-
-    // ===== SYMPTÔMES =====
-    if (symptomesFiltres.length > 0) {
-      checkPage(20)
-      drawRect(margin, y, 3, 8, ORANGE, 1)
-      writeText('Symptomes', margin + 6, y + 6, 13, NOIR, 'bold')
-      y += 12
-
-      drawRect(margin, y, contentW, 7, ORANGE, 2)
-      const colsSym = [45, 55, 22, 55]
-      const headersSym = ['Date', 'Symptome', 'Intensite', 'Note']
-      xCol = margin + 2
-      headersSym.forEach((h, i) => {
-        writeText(h, xCol, y + 5, 7.5, BLANC, 'bold')
-        xCol += colsSym[i]
-      })
+      checkPage(15)
+      rect(margin, y, 3, 7, BLEU)
+      txt('Traitements en cours', margin + 5, y + 5.5, 11, NOIR, 'bold')
+      y += 10
+      rect(margin, y, contentW, 7, BLEU)
+      const cMed = [55, 30, 60, 35]
+      const hMed = ['Medicament', 'Dosage', 'Frequence', 'Depuis']
+      let xc = margin + 2
+      hMed.forEach((h, i) => { txt(h, xc, y + 5, 7, BLANC, 'bold'); xc += cMed[i] })
       y += 7
-
-      symptomesFiltres.forEach((s, idx) => {
+      medicaments.forEach((med, idx) => {
         checkPage(7)
-        drawRect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : [255, 251, 235], 0)
-        xCol = margin + 2
-        const rowData = [formatDate(s.date), s.type, `${s.intensite}/5`, s.note || '—']
-        rowData.forEach((val, i) => {
-          const color = i === 2 ? (s.intensite >= 4 ? ROUGE : s.intensite === 3 ? ORANGE : VERT) : NOIR
-          writeText(val, xCol, y + 4.5, 7.5, color, i === 2 ? 'bold' : 'normal', colsSym[i] - 2)
-          xCol += colsSym[i]
-        })
+        rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
+        xc = margin + 2
+        const row = [med.nom, med.dosage, med.frequence || '—', formatDate(med.date_debut) || '—']
+        row.forEach((v, i) => { txt(v, xc, y + 4.5, 7, i === 0 ? [3, 105, 161] : NOIR, i === 0 ? 'bold' : 'normal', cMed[i] - 2); xc += cMed[i] })
         y += 6.5
       })
       y += 6
     }
 
-    // ===== PIED DE PAGE =====
-    const totalPages = pdf.getNumberOfPages()
-    for (let i = 1; i <= totalPages; i++) {
+    // RÉSUMÉ VALEURS
+    const typesUniques = [...new Set(analysesFiltrees.map(a => a.type))]
+    if (typesUniques.length > 0) {
+      checkPage(15)
+      rect(margin, y, 3, 7, VERT)
+      txt('Resume des dernieres valeurs', margin + 5, y + 5.5, 11, NOIR, 'bold')
+      y += 10
+      const bW = (contentW - 4) / 2
+      let col = 0
+      let rowY = y
+      typesUniques.forEach(type => {
+        const vt = analysesFiltrees.filter(a => a.type === type)
+        const last = vt[vt.length - 1]
+        if (!last) return
+        const anormal = isAnormal(last.valeur, last.normal_min, last.normal_max)
+        const x = margin + col * (bW + 4)
+        if (col === 0) { checkPage(18); rowY = y }
+        rect(x, rowY, bW, 16, anormal ? [254, 242, 242] : GRIS_CLAIR)
+        txt(type, x + 3, rowY + 5, 7.5, NOIR, 'bold', bW - 25)
+        txt(`${last.valeur} ${last.unite || ''}`, x + bW - 3, rowY + 5, 8, anormal ? ROUGE : VERT, 'bold')
+        if (last.normal_min !== null) {
+          const pct = Math.min(1, Math.max(0, last.valeur / last.normal_max))
+          rect(x + 3, rowY + 8, bW - 6, 2.5, [229, 231, 235])
+          rect(x + 3, rowY + 8, (bW - 6) * pct, 2.5, anormal ? ROUGE : VERT)
+          txt(`${last.normal_min}-${last.normal_max}`, x + 3, rowY + 14, 6, GRIS)
+        }
+        col++
+        if (col === 2) { col = 0; y = rowY + 20 }
+      })
+      if (col === 1) y = rowY + 20
+      y += 4
+    }
+
+    // BILANS DÉTAILLÉS
+    if (groupes.length > 0) {
+      checkPage(15)
+      rect(margin, y, 3, 7, VERT)
+      txt('Bilans sanguins', margin + 5, y + 5.5, 11, NOIR, 'bold')
+      y += 10
+      groupes.forEach(([date, valeurs]) => {
+        checkPage(20)
+        const nbAn = valeurs.filter(v => isAnormal(v.valeur, v.normal_min, v.normal_max)).length
+        rect(margin, y, contentW, 7, GRIS_CLAIR)
+        txt(formatDate(date), margin + 2, y + 5, 8, NOIR, 'bold')
+        if (nbAn > 0) {
+          rect(margin + contentW - 38, y + 1, 36, 5, [254, 226, 226])
+          txt(`⚠ ${nbAn} anormal${nbAn > 1 ? 'aux' : ''}`, margin + contentW - 37, y + 5, 7, ROUGE, 'bold')
+        } else {
+          rect(margin + contentW - 26, y + 1, 24, 5, [209, 250, 229])
+          txt('✓ Normal', margin + contentW - 25, y + 5, 7, VERT, 'bold')
+        }
+        y += 7
+        rect(margin, y, contentW, 6, VERT)
+        const cAn = [52, 22, 20, 40, 28]
+        const hAn = ['Analyse', 'Valeur', 'Unite', 'Plage', 'Statut']
+        let xc = margin + 2
+        hAn.forEach((h, i) => { txt(h, xc, y + 4.5, 7, BLANC, 'bold'); xc += cAn[i] })
+        y += 6
+        valeurs.forEach((a, idx) => {
+          checkPage(6)
+          const an = isAnormal(a.valeur, a.normal_min, a.normal_max)
+          rect(margin, y, contentW, 6, an ? [254, 242, 242] : idx % 2 === 0 ? BLANC : GRIS_CLAIR)
+          xc = margin + 2
+          const row = [a.type, String(a.valeur), a.unite || '—', a.normal_min !== null ? `${a.normal_min}-${a.normal_max}` : '—', an ? '⚠ Anormal' : '✓ Normal']
+          row.forEach((v, i) => {
+            const c = i === 1 || i === 4 ? (an ? ROUGE : VERT) : NOIR
+            txt(v, xc, y + 4.2, 7, c, i === 1 || i === 4 ? 'bold' : 'normal', cAn[i] - 2)
+            xc += cAn[i]
+          })
+          y += 6
+        })
+        y += 4
+      })
+    }
+
+    // SYMPTÔMES
+    if (symptomesFiltres.length > 0) {
+      checkPage(15)
+      rect(margin, y, 3, 7, ORANGE)
+      txt('Symptomes', margin + 5, y + 5.5, 11, NOIR, 'bold')
+      y += 10
+      rect(margin, y, contentW, 6, ORANGE)
+      const cSym = [42, 55, 20, 55]
+      const hSym = ['Date', 'Symptome', 'Int.', 'Note']
+      let xc = margin + 2
+      hSym.forEach((h, i) => { txt(h, xc, y + 4.5, 7, BLANC, 'bold'); xc += cSym[i] })
+      y += 6
+      symptomesFiltres.forEach((s, idx) => {
+        checkPage(6)
+        rect(margin, y, contentW, 6, idx % 2 === 0 ? BLANC : [255, 251, 235])
+        xc = margin + 2
+        const row = [formatDate(s.date), s.type, `${s.intensite}/5`, s.note || '—']
+        row.forEach((v, i) => {
+          const c = i === 2 ? (s.intensite >= 4 ? ROUGE : s.intensite === 3 ? ORANGE : VERT) : NOIR
+          txt(v, xc, y + 4.2, 7, c, i === 2 ? 'bold' : 'normal', cSym[i] - 2)
+          xc += cSym[i]
+        })
+        y += 6
+      })
+    }
+
+    // PIED DE PAGE
+    const total = pdf.getNumberOfPages()
+    for (let i = 1; i <= total; i++) {
       pdf.setPage(i)
-      drawRect(0, pageH - 12, pageW, 12, [249, 250, 251], 0)
-      pdf.setDrawColor(229, 231, 235)
-      pdf.line(0, pageH - 12, pageW, pageH - 12)
-      writeText('CrohnTrack — Cree par Damien Chereau — Ce rapport ne remplace pas un avis medical', pageW / 2, pageH - 5, 7, GRIS)
-      pdf.setFontSize(7)
-      pdf.setTextColor(...GRIS)
-      pdf.text(`Page ${i} / ${totalPages}`, pageW - margin, pageH - 5)
+      rect(0, pageH - 10, pageW, 10, GRIS_CLAIR)
+      txt('CrohnTrack — Cree par Damien Chereau — Ne remplace pas un avis medical', margin, pageH - 4, 6.5, GRIS)
+      txt(`${i}/${total}`, pageW - margin, pageH - 4, 6.5, GRIS, 'bold')
     }
 
     pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
     setGenerating(false)
-  }
+  }, 100)
+}
 
   if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
