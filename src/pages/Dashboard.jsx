@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
-function Dashboard() {
+function Dashboard({ t }) {
   const [stats, setStats] = useState({
     nbAnalyses: 0,
     nbSymptomes: 0,
@@ -75,78 +75,78 @@ function Dashboard() {
 
   if (loading) return <div className="px-6 py-8 text-gray-500">Chargement...</div>
 
-  return (
-    <div className="px-6 py-8">
+return (
+    <div className={`px-6 py-8 ${t?.bg || 'bg-gray-950'}`}>
 
       {/* En-tête */}
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">{getBonjour()} 👋</h2>
-        <p className="text-gray-400">Voici un résumé de ton suivi CrohnTrack.</p>
+        <h2 className={`text-3xl font-bold ${t?.text || 'text-white'} mb-2`}>{getBonjour()} 👋</h2>
+        <p className={t?.textMuted || 'text-gray-400'}>Voici un résumé de ton suivi CrohnTrack.</p>
       </div>
 
       {/* Cartes résumé */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <div className={`${t?.bgCard || 'bg-gray-900'} border ${t?.cardBorder || 'border-gray-800'} rounded-2xl p-5 ${t?.shadow || ''}`}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">📊</span>
-            <p className="text-gray-400 text-sm">Bilans</p>
+            <p className={`${t?.textMuted || 'text-gray-400'} text-sm`}>Bilans</p>
           </div>
-          <p className="text-3xl font-bold text-green-400">{stats.nbAnalyses}</p>
-          <p className="text-gray-600 text-xs mt-1">
+          <p className="text-3xl font-bold text-emerald-500">{stats.nbAnalyses}</p>
+          <p className={`${t?.textFaint || 'text-gray-600'} text-xs mt-1`}>
             {stats.derniereAnalyse ? `Dernier : ${formatDate(stats.derniereAnalyse)}` : 'Aucun bilan'}
           </p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <div className={`${t?.bgCard || 'bg-gray-900'} border ${t?.cardBorder || 'border-gray-800'} rounded-2xl p-5 ${t?.shadow || ''}`}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">🤒</span>
-            <p className="text-gray-400 text-sm">Symptômes</p>
+            <p className={`${t?.textMuted || 'text-gray-400'} text-sm`}>Symptômes</p>
           </div>
-          <p className="text-3xl font-bold text-yellow-400">{stats.nbSymptomes}</p>
-          <p className="text-gray-600 text-xs mt-1">Ces 7 derniers jours</p>
+          <p className="text-3xl font-bold text-amber-500">{stats.nbSymptomes}</p>
+          <p className={`${t?.textFaint || 'text-gray-600'} text-xs mt-1`}>Ces 7 derniers jours</p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <div className={`${t?.bgCard || 'bg-gray-900'} border ${t?.cardBorder || 'border-gray-800'} rounded-2xl p-5 ${t?.shadow || ''}`}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">💊</span>
-            <p className="text-gray-400 text-sm">Traitements</p>
+            <p className={`${t?.textMuted || 'text-gray-400'} text-sm`}>Traitements</p>
           </div>
-          <p className="text-3xl font-bold text-blue-400">{stats.nbMedicaments}</p>
-          <p className="text-gray-600 text-xs mt-1">En cours</p>
+          <p className="text-3xl font-bold text-sky-500">{stats.nbMedicaments}</p>
+          <p className={`${t?.textFaint || 'text-gray-600'} text-xs mt-1`}>En cours</p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <div className={`${t?.bgCard || 'bg-gray-900'} border ${t?.cardBorder || 'border-gray-800'} rounded-2xl p-5 ${t?.shadow || ''}`}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">🍽️</span>
-            <p className="text-gray-400 text-sm">Repas</p>
+            <p className={`${t?.textMuted || 'text-gray-400'} text-sm`}>Repas</p>
           </div>
-          <p className="text-3xl font-bold text-orange-400">{stats.nbRepas}</p>
-          <p className="text-gray-600 text-xs mt-1">Enregistrés</p>
+          <p className="text-3xl font-bold text-orange-500">{stats.nbRepas}</p>
+          <p className={`${t?.textFaint || 'text-gray-600'} text-xs mt-1`}>Enregistrés</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Alertes dernier bilan */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-          <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+        <div className={`${t?.bgCard || 'bg-gray-900'} border ${t?.cardBorder || 'border-gray-800'} rounded-2xl p-6 ${t?.shadow || ''}`}>
+          <h3 className={`font-bold ${t?.text || 'text-white'} mb-4 flex items-center gap-2`}>
             <span>📊</span> Dernier bilan — {formatDate(stats.derniereAnalyse)}
           </h3>
           {stats.anormaux.length === 0 ? (
-            <div className="flex items-center gap-3 bg-green-900/20 border border-green-800 rounded-xl p-4">
+            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
               <span className="text-2xl">✅</span>
               <div>
-                <p className="text-green-400 font-semibold">Tout est normal</p>
-                <p className="text-gray-500 text-sm">Aucune valeur anormale détectée.</p>
+                <p className="text-emerald-500 font-semibold">Tout est normal</p>
+                <p className={`${t?.textMuted || 'text-gray-400'} text-sm`}>Aucune valeur anormale détectée.</p>
               </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {stats.anormaux.map(a => (
-                <div key={a.id} className="flex items-center justify-between bg-red-950/30 border border-red-800/40 rounded-xl px-4 py-3">
+                <div key={a.id} className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
                   <div>
-                    <p className="font-semibold text-white text-sm">{a.type}</p>
-                    <p className="text-gray-500 text-xs">Normal : {a.normal_min} — {a.normal_max} {a.unite}</p>
+                    <p className={`font-semibold ${t?.text || 'text-white'} text-sm`}>{a.type}</p>
+                    <p className={`${t?.textFaint || 'text-gray-500'} text-xs`}>Normal : {a.normal_min} — {a.normal_max} {a.unite}</p>
                   </div>
                   <p className="text-red-400 font-bold">{a.valeur} {a.unite}</p>
                 </div>
@@ -155,25 +155,25 @@ function Dashboard() {
           )}
         </div>
 
-        {/* Médicaments du jour */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-          <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+        {/* Médicaments */}
+        <div className={`${t?.bgCard || 'bg-gray-900'} border ${t?.cardBorder || 'border-gray-800'} rounded-2xl p-6 ${t?.shadow || ''}`}>
+          <h3 className={`font-bold ${t?.text || 'text-white'} mb-4 flex items-center gap-2`}>
             <span>💊</span> Traitements en cours
           </h3>
           {stats.medicaments.length === 0 ? (
-            <p className="text-gray-500 text-sm">Aucun traitement enregistré.</p>
+            <p className={`${t?.textMuted || 'text-gray-400'} text-sm`}>Aucun traitement enregistré.</p>
           ) : (
             <div className="flex flex-col gap-3">
               {stats.medicaments.map(med => (
-                <div key={med.id} className="flex items-center justify-between bg-blue-900/20 border border-blue-800/30 rounded-xl px-4 py-3">
+                <div key={med.id} className="flex items-center justify-between bg-sky-500/10 border border-sky-500/20 rounded-xl px-4 py-3">
                   <div>
-                    <p className="font-semibold text-white text-sm">{med.nom}</p>
-                    <p className="text-gray-500 text-xs">{med.frequence || '—'}</p>
+                    <p className={`font-semibold ${t?.text || 'text-white'} text-sm`}>{med.nom}</p>
+                    <p className={`${t?.textFaint || 'text-gray-500'} text-xs`}>{med.frequence || '—'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-blue-400 font-semibold text-sm">{med.dosage}</p>
+                    <p className="text-sky-500 font-semibold text-sm">{med.dosage}</p>
                     {med.heure_rappel && (
-                      <p className="text-gray-600 text-xs">⏰ {med.heure_rappel}</p>
+                      <p className={`${t?.textFaint || 'text-gray-600'} text-xs`}>⏰ {med.heure_rappel}</p>
                     )}
                   </div>
                 </div>
@@ -183,25 +183,25 @@ function Dashboard() {
         </div>
 
         {/* Symptômes récents */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 md:col-span-2">
-          <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+        <div className={`${t?.bgCard || 'bg-gray-900'} border ${t?.cardBorder || 'border-gray-800'} rounded-2xl p-6 ${t?.shadow || ''} md:col-span-2`}>
+          <h3 className={`font-bold ${t?.text || 'text-white'} mb-4 flex items-center gap-2`}>
             <span>🤒</span> Symptômes récents — 7 derniers jours
           </h3>
           {stats.symptomesRecents.length === 0 ? (
-            <div className="flex items-center gap-3 bg-green-900/20 border border-green-800 rounded-xl p-4">
+            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
               <span className="text-2xl">✅</span>
               <div>
-                <p className="text-green-400 font-semibold">Aucun symptôme cette semaine</p>
-                <p className="text-gray-500 text-sm">Continue comme ça !</p>
+                <p className="text-emerald-500 font-semibold">Aucun symptôme cette semaine</p>
+                <p className={`${t?.textMuted || 'text-gray-400'} text-sm`}>Continue comme ça !</p>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-3">
               {stats.symptomesRecents.map(s => (
-                <div key={s.id} className="bg-yellow-900/20 border border-yellow-800/30 rounded-xl px-4 py-2 flex items-center gap-2">
-                  <span className="text-yellow-400 font-semibold text-sm">{s.type}</span>
-                  <span className="text-gray-500 text-xs">— {s.intensite}/5</span>
-                  <span className="text-gray-600 text-xs">{formatDate(s.date)}</span>
+                <div key={s.id} className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2 flex items-center gap-2">
+                  <span className="text-amber-500 font-semibold text-sm">{s.type}</span>
+                  <span className={`${t?.textFaint || 'text-gray-500'} text-xs`}>— {s.intensite}/5</span>
+                  <span className={`${t?.textFaint || 'text-gray-600'} text-xs`}>{formatDate(s.date)}</span>
                 </div>
               ))}
             </div>
