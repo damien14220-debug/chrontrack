@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 
 function Rapport() {
   const [analyses, setAnalyses] = useState([])
@@ -63,16 +62,6 @@ function Rapport() {
     return Object.entries(groupes).sort((a, b) => new Date(b[0]) - new Date(a[0]))
   }
 
-  // Données pour graphiques par type
-  const getGraphiqueData = (type) => {
-    return analysesFiltrees
-      .filter(a => a.type === type)
-      .map(a => ({
-        date: new Date(a.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-        valeur: a.valeur,
-      }))
-  }
-
   const getTypesUniques = () => [...new Set(analysesFiltrees.map(a => a.type))]
 
   const getParamsType = (type) => {
@@ -86,47 +75,35 @@ function Rapport() {
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
   }
 
-const generatePDF = async () => {
-  setGenerating(true)
-  const element = rapportRef.current
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    windowWidth: 800,
-  })
-
-  const imgData = canvas.toDataURL('image/png')
-  const pdf = new jsPDF('p', 'mm', 'a4')
-  const pageWidth = pdf.internal.pageSize.getWidth()
-  const pageHeight = pdf.internal.pageSize.getHeight()
-  const imgWidth = pageWidth
-  const imgHeight = (canvas.height * imgWidth) / canvas.width
-  const margin = 10
-
-  const usablePageHeight = pageHeight - margin * 2
-  let yPosition = 0
-
-  while (yPosition < imgHeight) {
-    if (yPosition > 0) pdf.addPage()
-    pdf.addImage(
-      imgData,
-      'PNG',
-      0,
-      margin - yPosition,
-      imgWidth,
-      imgHeight
-    )
-    // Masque le débordement avec des rectangles blancs
-    pdf.setFillColor(255, 255, 255)
-    pdf.rect(0, 0, pageWidth, margin, 'F')
-    pdf.rect(0, pageHeight - margin, pageWidth, margin, 'F')
-    yPosition += usablePageHeight
+  const generatePDF = async () => {
+    setGenerating(true)
+    const element = rapportRef.current
+    const canvas = await html2canvas(element, {
+      scale: 1.5,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      width: 794,
+      windowWidth: 794,
+    })
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pageWidth = 210
+    const pageHeight = 297
+    const imgHeight = (canvas.height * pageWidth) / canvas.width
+    let remaining = imgHeight
+    let position = 0
+    while (remaining > 0) {
+      pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight)
+      remaining -= pageHeight
+      if (remaining > 0) {
+        pdf.addPage()
+        position -= pageHeight
+      }
+    }
+    pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
+    setGenerating(false)
   }
-
-  pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
-  setGenerating(false)
-}
 
   if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
@@ -174,8 +151,10 @@ const generatePDF = async () => {
       </div>
 
       {/* RAPPORT PDF */}
-      <div ref={rapportRef} style={{ backgroundColor: '#ffffff', color: '#111827', fontFamily: 'Arial, sans-serif', padding: '40px', maxWidth: '800px' }}>
-
+      <div
+        ref={rapportRef}
+        style={{ backgroundColor: '#ffffff', color: '#111827', fontFamily: 'Arial, sans-serif', padding: '40px', width: '794px', margin: '0 auto' }}
+      >
         {/* En-tête */}
         <div style={{ background: 'linear-gradient(135deg, #059669, #0ea5e9)', borderRadius: '16px', padding: '30px', marginBottom: '30px', color: 'white' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -199,7 +178,7 @@ const generatePDF = async () => {
             { label: 'Symptômes', valeur: symptomesFiltres.length, couleur: '#d97706', bg: '#fef3c7', icon: '🤒' },
             { label: 'Traitements', valeur: medicaments.length, couleur: '#0ea5e9', bg: '#e0f2fe', icon: '💊' },
           ].map(item => (
-            <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '12px', padding: '20px', textAlign: 'center', border: `2px solid ${item.couleur}20` }}>
+            <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '12px', padding: '20px', textAlign: 'center', border: `2px solid ${item.couleur}30` }}>
               <p style={{ fontSize: '24px', margin: '0 0 6px 0' }}>{item.icon}</p>
               <p style={{ fontSize: '32px', fontWeight: 'bold', color: item.couleur, margin: '0 0 4px 0' }}>{item.valeur}</p>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>{item.label}</p>
@@ -210,10 +189,10 @@ const generatePDF = async () => {
         {/* Traitements */}
         {medicaments.length > 0 && (
           <div style={{ marginBottom: '30px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #0ea5e9', paddingLeft: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #0ea5e9', paddingLeft: '12px', marginBottom: '16px' }}>
               💊 Traitements en cours
             </h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#0ea5e9', color: 'white' }}>
                   {['Médicament', 'Dosage', 'Fréquence', 'Depuis'].map(h => (
@@ -235,41 +214,42 @@ const generatePDF = async () => {
           </div>
         )}
 
-        {/* Graphiques d'évolution */}
-        {typesUniques.length > 0 && analysesFiltrees.length > 1 && (
+        {/* Résumé dernières valeurs avec barres */}
+        {typesUniques.length > 0 && (
           <div style={{ marginBottom: '30px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #059669', paddingLeft: '12px', marginBottom: '20px' }}>
-              📈 Évolution des analyses
+              📈 Résumé des dernières valeurs
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {typesUniques.map(type => {
-                const data = getGraphiqueData(type)
                 const params = getParamsType(type)
-                if (data.length < 2) return null
+                const valeursType = analysesFiltrees.filter(a => a.type === type)
+                const derniere = valeursType[valeursType.length - 1]
+                if (!derniere) return null
+                const anormal = isAnormal(derniere.valeur, derniere.normal_min, derniere.normal_max)
+                const pct = params && params.normal_max
+                  ? Math.min(100, Math.round((derniere.valeur / params.normal_max) * 100))
+                  : 50
                 return (
-                  <div key={type} style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '8px', color: '#111827' }}>
-                      {type} {params ? `(${params.unite})` : ''}
-                    </p>
+                  <div key={type} style={{ backgroundColor: anormal ? '#fef2f2' : '#f9fafb', borderRadius: '10px', padding: '14px', border: `1px solid ${anormal ? '#fecaca' : '#e5e7eb'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{type}</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '15px', color: anormal ? '#ef4444' : '#059669' }}>
+                        {derniere.valeur} {params?.unite || ''}
+                      </span>
+                    </div>
                     {params && (
-                      <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
-                        Normal : {params.normal_min} — {params.normal_max}
-                      </p>
+                      <>
+                        <div style={{ backgroundColor: '#e5e7eb', borderRadius: '999px', height: '8px', marginBottom: '4px' }}>
+                          <div style={{ backgroundColor: anormal ? '#ef4444' : '#059669', borderRadius: '999px', height: '8px', width: `${pct}%`, maxWidth: '100%' }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>0</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>Normal : {params.normal_min} — {params.normal_max}</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>{params.normal_max}</span>
+                        </div>
+                      </>
                     )}
-                    <ResponsiveContainer width="100%" height={120}>
-                      <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="#9ca3af" />
-                        <YAxis tick={{ fontSize: 9 }} stroke="#9ca3af" />
-                        {params && params.normal_max && (
-                          <ReferenceLine y={params.normal_max} stroke="#ef4444" strokeDasharray="3 3" />
-                        )}
-                        {params && params.normal_min && (
-                          <ReferenceLine y={params.normal_min} stroke="#f59e0b" strokeDasharray="3 3" />
-                        )}
-                        <Line type="monotone" dataKey="valeur" stroke="#059669" strokeWidth={2} dot={{ r: 3, fill: '#059669' }} />
-                      </LineChart>
-                    </ResponsiveContainer>
                   </div>
                 )
               })}
@@ -373,7 +353,7 @@ const generatePDF = async () => {
         )}
 
         {/* Pied de page */}
-        <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '20px', marginTop: '20px', textAlign: 'center', background: '#f9fafb', borderRadius: '0 0 12px 12px', padding: '20px' }}>
+        <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '20px', marginTop: '20px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '12px', padding: '20px' }}>
           <p style={{ color: '#059669', fontWeight: '600', fontSize: '14px', margin: '0 0 4px 0' }}>🩺 CrohnTrack</p>
           <p style={{ color: '#9ca3af', fontSize: '12px', margin: '0 0 4px 0' }}>Créé par Damien Chereau — atteint de la maladie de Crohn</p>
           <p style={{ color: '#d1d5db', fontSize: '11px', margin: 0 }}>Ce rapport est un outil de suivi personnel et ne remplace pas un avis médical professionnel.</p>
