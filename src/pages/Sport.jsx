@@ -71,7 +71,7 @@ function Sport() {
 
   const handleStravaCallback = async () => {
     const params = new URLSearchParams(window.location.search)
-    const code = params.get('strava_code')
+    const code = params.get('code')
     if (!code) return
 
     // Nettoie l'URL
@@ -107,7 +107,7 @@ function Sport() {
     const url = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(window.location.origin + '?strava_code=1')}&response_type=code&scope=activity:read_all`
     window.location.href = url.replace('strava_code=1', 'strava_code=CODE').replace('CODE', '')
       .replace('?strava_code=', '')
-    const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(window.location.href.split('?')[0])}&response_type=code&scope=activity:read_all&approval_prompt=auto`
+    const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent('https://crohntrack.fr')}&response_type=code&scope=activity:read_all&approval_prompt=force`
     window.location.href = authUrl
   }
 
