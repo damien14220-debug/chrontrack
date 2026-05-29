@@ -117,13 +117,6 @@ function App() {
             <img src="/icon-192.png" className="w-9 h-9 rounded-xl" alt="logo" />
             <h1 className={`text-xl font-bold ${t.accent}`}>CrohnTrack</h1>
           </div>
-          <button
-            onClick={toggleTheme}
-            className={`p-2 rounded-xl ${t.bgHover} transition text-lg`}
-            title="Changer le thème"
-          >
-            {dark ? '☀️' : '🌙'}
-          </button>
         </div>
 
         {/* Nav */}
@@ -174,9 +167,6 @@ function App() {
             <h1 className={`text-lg font-bold ${t.accent}`}>CrohnTrack</h1>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={toggleTheme} className={`p-2 rounded-xl ${t.bgHover} transition`}>
-              {dark ? '☀️' : '🌙'}
-            </button>
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
               className={`p-2 rounded-xl ${t.bgHover} transition text-lg`}

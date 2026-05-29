@@ -22,7 +22,7 @@ const ANALYSES_DEFAULT = [
   { type: 'Zinc', unite: 'µmol/L', normal_min: 10, normal_max: 18, description: 'Oligo-élément important pour l\'immunité et la cicatrisation. Fréquemment bas dans le Crohn.' },
 ]
 
-function Parametres() {
+function Parametres({ t, toggleTheme }) {
   const [parametres, setParametres] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -70,9 +70,10 @@ function Parametres() {
         .update({ unite: p.unite, normal_min: parseFloat(p.normal_min), normal_max: parseFloat(p.normal_max) })
         .eq('type', p.type)
     } else {
-      await supabase
-        .from('parametres_analyses')
-        .insert({ type: p.type, unite: p.unite, normal_min: parseFloat(p.normal_min), normal_max: parseFloat(p.normal_max) })
+      const { data: { user } } = await supabase.auth.getUser()
+        await supabase
+            .from('parametres_analyses')
+            .insert({ type: p.type, unite: p.unite, normal_min: parseFloat(p.normal_min), normal_max: parseFloat(p.normal_max), user_id: user.id })
     }
   }
 
@@ -86,18 +87,26 @@ function Parametres() {
   return (
     <div className="px-6 py-8">
 
-      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-bold text-white mb-2">⚙️ Paramètres</h2>
           <p className="text-gray-400">Personnalise tes valeurs normales de référence.</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50"
-        >
-          {saving ? 'Sauvegarde...' : saved ? '✅ Sauvegardé !' : '💾 Sauvegarder'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleTheme}
+            className="bg-gray-800 hover:bg-gray-700 text-white font-semibold px-4 py-3 rounded-xl transition flex items-center gap-2"
+          >
+            {t?.dark ? '☀️ Mode jour' : '🌙 Mode nuit'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50"
+          >
+            {saving ? 'Sauvegarde...' : saved ? '✅ Sauvegardé !' : '💾 Sauvegarder'}
+          </button>
+        </div>
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
