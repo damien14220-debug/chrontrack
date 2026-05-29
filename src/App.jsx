@@ -9,6 +9,8 @@ import Repas from './pages/Repas'
 import Medicaments from './pages/Medicaments'
 import Rapport from './pages/Rapport'
 import Parametres from './pages/Parametres'
+import Sport from './pages/Sport'
+import Journal from './pages/Journal'
 
 function App() {
   const [page, setPage] = useState('dashboard')
@@ -54,6 +56,8 @@ function App() {
     { id: 'symptomes', label: 'Symptômes', icon: '🤒' },
     { id: 'repas', label: 'Repas', icon: '🍽️' },
     { id: 'medicaments', label: 'Médocs', icon: '💊' },
+    { id: 'sport', label: 'Sport', icon: '🏃' },
+    { id: 'journal', label: 'Journal', icon: '📓' },
     { id: 'rapport', label: 'Rapport', icon: '📄' },
   ]
 
@@ -65,6 +69,8 @@ function App() {
       case 'symptomes': return <Symptomes />
       case 'repas': return <Repas />
       case 'medicaments': return <Medicaments />
+      case 'sport': return <Sport />
+      case 'journal': return <Journal />
       case 'rapport': return <Rapport />
       case 'parametres': return <Parametres toggleTheme={toggleTheme} dark={dark} />
       default: return <Dashboard />
@@ -75,7 +81,7 @@ function App() {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="text-center">
-          <img src="/icon-192.png" className="w-16 h-16 mx-auto mb-4 rounded-2xl" alt="logo" />
+          <img src="/apple-touch-icon.png" className="w-16 h-16 mx-auto mb-4 rounded-2xl" alt="logo" />
           <p className="text-emerald-600 dark:text-green-400 font-semibold">Chargement...</p>
         </div>
       </div>
@@ -89,9 +95,8 @@ function App() {
 
       {/* SIDEBAR DESKTOP */}
       <aside className="hidden md:flex w-64 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800 min-h-screen p-6 flex-col">
-
         <div className="flex items-center gap-3 mb-8">
-          <img src="/icon-192.png" className="w-9 h-9 rounded-xl" alt="logo" />
+          <img src="/apple-touch-icon.png" className="w-9 h-9 rounded-xl" alt="logo" />
           <h1 className="text-xl font-bold text-emerald-600 dark:text-green-400">CrohnTrack</h1>
         </div>
 
@@ -119,7 +124,7 @@ function App() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium mb-1 ${
               page === 'parametres'
                 ? 'bg-emerald-50 dark:bg-green-500/20 text-emerald-600 dark:text-green-400 border border-emerald-200 dark:border-green-500/30'
-                : 'text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-white'
+                : 'text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'
             }`}
           >
             <span className="text-lg">⚙️</span>
@@ -141,7 +146,7 @@ function App() {
         {/* Header mobile */}
         <header className="md:hidden bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/icon-192.png" className="w-8 h-8 rounded-xl" alt="logo" />
+            <img src="/apple-touch-icon.png" className="w-8 h-8 rounded-xl" alt="logo" />
             <h1 className="text-lg font-bold text-emerald-600 dark:text-green-400">CrohnTrack</h1>
           </div>
           <button
@@ -177,19 +182,19 @@ function App() {
         </main>
 
         {/* BARRE NAV MOBILE */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 px-2 py-2 z-50">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 px-1 py-2 z-50">
           <div className="flex items-center justify-around">
             {navItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setPage(item.id)}
-                className={`flex flex-col items-center gap-1 px-1 py-1 rounded-xl transition flex-1 ${
+                className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded-xl transition flex-1 ${
                   page === item.id
                     ? 'text-emerald-600 dark:text-green-400'
                     : 'text-slate-400 dark:text-gray-600'
                 }`}
               >
-                <span className="text-xl">{item.icon}</span>
+                <span className="text-lg">{item.icon}</span>
                 <span className="text-xs font-medium">{item.label}</span>
               </button>
             ))}
