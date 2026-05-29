@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
 function Rapport() {
   const [analyses, setAnalyses] = useState([])
@@ -12,7 +11,6 @@ function Rapport() {
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
   const [nomPatient, setNomPatient] = useState('')
-  const rapportRef = useRef(null)
 
   useEffect(() => {
     const today = new Date()
@@ -50,66 +48,308 @@ function Rapport() {
     return data.filter(d => d.date >= dateDebut && d.date <= dateFin)
   }
 
-  const analysesFiltrees = filtrer(analyses)
-  const symptomesFiltres = filtrer(symptomes)
-
-  const groupAnalyses = () => {
-    const groupes = {}
-    analysesFiltrees.forEach(a => {
-      if (!groupes[a.date]) groupes[a.date] = []
-      groupes[a.date].push(a)
-    })
-    return Object.entries(groupes).sort((a, b) => new Date(b[0]) - new Date(a[0]))
-  }
-
-  const getTypesUniques = () => [...new Set(analysesFiltrees.map(a => a.type))]
-
-  const getParamsType = (type) => {
-    const a = analysesFiltrees.find(a => a.type === type)
-    return a ? { normal_min: a.normal_min, normal_max: a.normal_max, unite: a.unite } : null
-  }
-
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     const d = new Date(dateStr)
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
   }
 
-  const generatePDF = async () => {
+  const generatePDF = () => {
     setGenerating(true)
-    const element = rapportRef.current
-    const canvas = await html2canvas(element, {
-      scale: 1.5,
-      backgroundColor: '#ffffff',
-      useCORS: true,
-      logging: false,
-      width: 794,
-      windowWidth: 794,
-    })
-    const imgData = canvas.toDataURL('image/png')
+
+    const analysesFiltrees = filtrer(analyses)
+    const symptomesFiltres = filtrer(symptomes)
+
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pageWidth = 210
-    const pageHeight = 297
-    const imgHeight = (canvas.height * pageWidth) / canvas.width
-    let remaining = imgHeight
-    let position = 0
-    while (remaining > 0) {
-      pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight)
-      remaining -= pageHeight
-      if (remaining > 0) {
+    const pageW = 210
+    const pageH = 297
+    const margin = 15
+    const contentW = pageW - margin * 2
+    let y = margin
+
+    // Couleurs
+    const VERT = [5, 150, 105]
+    const BLEU = [14, 165, 233]
+    const ROUGE = [239, 68, 68]
+    const ORANGE = [217, 119, 6]
+    const GRIS = [107, 114, 128]
+    const GRIS_CLAIR = [249, 250, 251]
+    const BLANC = [255, 255, 255]
+    const NOIR = [17, 24, 39]
+
+    const checkPage = (needed = 10) => {
+      if (y + needed > pageH - margin) {
         pdf.addPage()
-        position -= pageHeight
+        y = margin
       }
     }
+
+    const drawRect = (x, ry, w, h, color, radius = 0) => {
+      pdf.setFillColor(...color)
+      pdf.roundedRect(x, ry, w, h, radius, radius, 'F')
+    }
+
+    const writeText = (text, x, ry, size, color, style = 'normal', maxWidth = null) => {
+      pdf.setFontSize(size)
+      pdf.setTextColor(...color)
+      pdf.setFont('helvetica', style)
+      if (maxWidth) {
+        const lines = pdf.splitTextToSize(String(text), maxWidth)
+        pdf.text(lines, x, ry)
+        return lines.length * size * 0.4
+      }
+      pdf.text(String(text), x, ry)
+      return size * 0.4
+    }
+
+    // ===== EN-TÊTE =====
+    drawRect(margin, y, contentW, 35, VERT, 4)
+    writeText('CrohnTrack', margin + 5, y + 10, 20, BLANC, 'bold')
+    writeText('Rapport de suivi medical - Maladie de Crohn', margin + 5, y + 17, 10, [200, 240, 220])
+    writeText(nomPatient || 'Patient', margin + contentW - 5, y + 9, 13, BLANC, 'bold')
+    pdf.setFont('helvetica', 'normal')
+    writeText(`${formatDate(dateDebut)} - ${formatDate(dateFin)}`, margin + contentW - 5, y + 15, 9, [200, 240, 220])
+    writeText(`Genere le ${formatDate(new Date().toISOString().split('T')[0])}`, margin + contentW - 5, y + 20, 8, [180, 220, 200])
+    // Alignement droite
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(13)
+    pdf.setTextColor(255, 255, 255)
+    const nomW = pdf.getTextWidth(nomPatient || 'Patient')
+    pdf.text(nomPatient || 'Patient', pageW - margin - nomW, y + 9)
+    y += 42
+
+    // ===== RÉSUMÉ =====
+    const groupes = (() => {
+      const g = {}
+      analysesFiltrees.forEach(a => { if (!g[a.date]) g[a.date] = []; g[a.date].push(a) })
+      return Object.entries(g).sort((a, b) => new Date(b[0]) - new Date(a[0]))
+    })()
+    const anormauxTotal = analysesFiltrees.filter(a => isAnormal(a.valeur, a.normal_min, a.normal_max))
+
+    const cartes = [
+      { label: 'Bilans', valeur: groupes.length, couleur: VERT, bg: [209, 250, 229] },
+      { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? ROUGE : VERT, bg: anormauxTotal.length > 0 ? [254, 226, 226] : [209, 250, 229] },
+      { label: 'Symptomes', valeur: symptomesFiltres.length, couleur: ORANGE, bg: [254, 243, 199] },
+      { label: 'Traitements', valeur: medicaments.length, couleur: BLEU, bg: [224, 242, 254] },
+    ]
+
+    const carteW = (contentW - 9) / 4
+    cartes.forEach((c, i) => {
+      const x = margin + i * (carteW + 3)
+      drawRect(x, y, carteW, 22, c.bg, 3)
+      pdf.setFontSize(16)
+      pdf.setTextColor(...c.couleur)
+      pdf.setFont('helvetica', 'bold')
+      const numW = pdf.getTextWidth(String(c.valeur))
+      pdf.text(String(c.valeur), x + carteW / 2 - numW / 2, y + 11)
+      pdf.setFontSize(8)
+      pdf.setTextColor(...GRIS)
+      pdf.setFont('helvetica', 'normal')
+      const lblW = pdf.getTextWidth(c.label)
+      pdf.text(c.label, x + carteW / 2 - lblW / 2, y + 18)
+    })
+    y += 28
+
+    // ===== TRAITEMENTS =====
+    if (medicaments.length > 0) {
+      checkPage(20)
+      drawRect(margin, y, 3, 8, BLEU, 1)
+      writeText('Traitements en cours', margin + 6, y + 6, 13, NOIR, 'bold')
+      y += 12
+
+      // En-tête tableau
+      drawRect(margin, y, contentW, 8, BLEU, 2)
+      const colsMed = [55, 35, 55, 40]
+      const headersMed = ['Medicament', 'Dosage', 'Frequence', 'Depuis']
+      let xCol = margin + 2
+      headersMed.forEach((h, i) => {
+        writeText(h, xCol, y + 5.5, 8, BLANC, 'bold')
+        xCol += colsMed[i]
+      })
+      y += 8
+
+      medicaments.forEach((med, idx) => {
+        checkPage(8)
+        drawRect(margin, y, contentW, 7, idx % 2 === 0 ? BLANC : GRIS_CLAIR, 0)
+        xCol = margin + 2
+        const rowData = [med.nom, med.dosage, med.frequence || '—', formatDate(med.date_debut) || '—']
+        rowData.forEach((val, i) => {
+          writeText(val, xCol, y + 5, 8, i === 0 ? [3, 105, 161] : NOIR, i === 0 ? 'bold' : 'normal', colsMed[i] - 2)
+          xCol += colsMed[i]
+        })
+        y += 7
+      })
+      y += 8
+    }
+
+    // ===== RÉSUMÉ VALEURS =====
+    const typesUniques = [...new Set(analysesFiltrees.map(a => a.type))]
+    if (typesUniques.length > 0) {
+      checkPage(20)
+      drawRect(margin, y, 3, 8, VERT, 1)
+      writeText('Resume des dernieres valeurs', margin + 6, y + 6, 13, NOIR, 'bold')
+      y += 12
+
+      const barW = (contentW - 6) / 2
+      let col = 0
+      let rowY = y
+
+      typesUniques.forEach(type => {
+        const valeursType = analysesFiltrees.filter(a => a.type === type)
+        const derniere = valeursType[valeursType.length - 1]
+        if (!derniere) return
+
+        const anormal = isAnormal(derniere.valeur, derniere.normal_min, derniere.normal_max)
+        const x = margin + col * (barW + 6)
+
+        checkPage(20)
+        if (col === 0) rowY = y
+
+        drawRect(x, rowY, barW, 18, anormal ? [254, 242, 242] : GRIS_CLAIR, 3)
+
+        writeText(type, x + 3, rowY + 5, 8, NOIR, 'bold', barW - 20)
+        pdf.setFontSize(9)
+        pdf.setTextColor(...(anormal ? ROUGE : VERT))
+        pdf.setFont('helvetica', 'bold')
+        const valStr = `${derniere.valeur} ${derniere.unite || ''}`
+        const valW = pdf.getTextWidth(valStr)
+        pdf.text(valStr, x + barW - valW - 3, rowY + 5)
+
+        if (derniere.normal_min !== null && derniere.normal_max !== null) {
+          const pct = Math.min(1, Math.max(0, derniere.valeur / derniere.normal_max))
+          drawRect(x + 3, rowY + 8, barW - 6, 3, [229, 231, 235], 1)
+          drawRect(x + 3, rowY + 8, (barW - 6) * pct, 3, anormal ? ROUGE : VERT, 1)
+          writeText(`Normal: ${derniere.normal_min}-${derniere.normal_max}`, x + 3, rowY + 16, 7, GRIS)
+        }
+
+        col++
+        if (col === 2) {
+          col = 0
+          y = rowY + 22
+        }
+      })
+
+      if (col === 1) y = rowY + 22
+      y += 6
+    }
+
+    // ===== BILANS DÉTAILLÉS =====
+    if (groupes.length > 0) {
+      checkPage(20)
+      drawRect(margin, y, 3, 8, VERT, 1)
+      writeText('Bilans sanguins détaillés', margin + 6, y + 6, 13, NOIR, 'bold')
+      y += 12
+
+      groupes.forEach(([date, valeurs]) => {
+        checkPage(25)
+        const nbAnormaux = valeurs.filter(v => isAnormal(v.valeur, v.normal_min, v.normal_max)).length
+
+        drawRect(margin, y, contentW, 8, GRIS_CLAIR, 2)
+        writeText(`  ${formatDate(date)}`, margin + 2, y + 5.5, 9, NOIR, 'bold')
+        if (nbAnormaux > 0) {
+          drawRect(margin + contentW - 42, y + 1, 40, 6, [254, 226, 226], 2)
+          writeText(`⚠ ${nbAnormaux} anormal${nbAnormaux > 1 ? 'aux' : ''}`, margin + contentW - 41, y + 5.5, 7, ROUGE, 'bold')
+        } else {
+          drawRect(margin + contentW - 30, y + 1, 28, 6, [209, 250, 229], 2)
+          writeText('✓ Normal', margin + contentW - 29, y + 5.5, 7, VERT, 'bold')
+        }
+        y += 9
+
+        // En-tête
+        drawRect(margin, y, contentW, 7, VERT, 0)
+        const colsAn = [55, 22, 20, 40, 30]
+        const headersAn = ['Analyse', 'Valeur', 'Unite', 'Plage normale', 'Statut']
+        xCol = margin + 2
+        headersAn.forEach((h, i) => {
+          writeText(h, xCol, y + 5, 7.5, BLANC, 'bold')
+          xCol += colsAn[i]
+        })
+        y += 7
+
+        valeurs.forEach((a, idx) => {
+          checkPage(7)
+          const anormal = isAnormal(a.valeur, a.normal_min, a.normal_max)
+          drawRect(margin, y, contentW, 6.5, anormal ? [254, 242, 242] : idx % 2 === 0 ? BLANC : GRIS_CLAIR, 0)
+          xCol = margin + 2
+          const rowData = [
+            a.type,
+            String(a.valeur),
+            a.unite || '—',
+            a.normal_min !== null ? `${a.normal_min} - ${a.normal_max}` : '—',
+            anormal ? '⚠ Anormal' : '✓ Normal'
+          ]
+          rowData.forEach((val, i) => {
+            const color = i === 1 ? (anormal ? ROUGE : VERT) : i === 4 ? (anormal ? ROUGE : VERT) : NOIR
+            writeText(val, xCol, y + 4.5, 7.5, color, i === 1 || i === 4 ? 'bold' : 'normal', colsAn[i] - 2)
+            xCol += colsAn[i]
+          })
+          y += 6.5
+        })
+        y += 6
+      })
+    }
+
+    // ===== SYMPTÔMES =====
+    if (symptomesFiltres.length > 0) {
+      checkPage(20)
+      drawRect(margin, y, 3, 8, ORANGE, 1)
+      writeText('Symptomes', margin + 6, y + 6, 13, NOIR, 'bold')
+      y += 12
+
+      drawRect(margin, y, contentW, 7, ORANGE, 2)
+      const colsSym = [45, 55, 22, 55]
+      const headersSym = ['Date', 'Symptome', 'Intensite', 'Note']
+      xCol = margin + 2
+      headersSym.forEach((h, i) => {
+        writeText(h, xCol, y + 5, 7.5, BLANC, 'bold')
+        xCol += colsSym[i]
+      })
+      y += 7
+
+      symptomesFiltres.forEach((s, idx) => {
+        checkPage(7)
+        drawRect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : [255, 251, 235], 0)
+        xCol = margin + 2
+        const rowData = [formatDate(s.date), s.type, `${s.intensite}/5`, s.note || '—']
+        rowData.forEach((val, i) => {
+          const color = i === 2 ? (s.intensite >= 4 ? ROUGE : s.intensite === 3 ? ORANGE : VERT) : NOIR
+          writeText(val, xCol, y + 4.5, 7.5, color, i === 2 ? 'bold' : 'normal', colsSym[i] - 2)
+          xCol += colsSym[i]
+        })
+        y += 6.5
+      })
+      y += 6
+    }
+
+    // ===== PIED DE PAGE =====
+    const totalPages = pdf.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i)
+      drawRect(0, pageH - 12, pageW, 12, [249, 250, 251], 0)
+      pdf.setDrawColor(229, 231, 235)
+      pdf.line(0, pageH - 12, pageW, pageH - 12)
+      writeText('CrohnTrack — Cree par Damien Chereau — Ce rapport ne remplace pas un avis medical', pageW / 2, pageH - 5, 7, GRIS)
+      pdf.setFontSize(7)
+      pdf.setTextColor(...GRIS)
+      pdf.text(`Page ${i} / ${totalPages}`, pageW - margin, pageH - 5)
+    }
+
     pdf.save(`rapport-crohn-${dateDebut}-${dateFin}.pdf`)
     setGenerating(false)
   }
 
   if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
-  const groupes = groupAnalyses()
-  const anormauxTotal = analysesFiltrees.filter(a => isAnormal(a.valeur, a.normal_min, a.normal_max))
-  const typesUniques = getTypesUniques()
+  const analysesFiltrees = filtrer(analyses)
+  const symptomesFiltres = filtrer(symptomes)
+  const groupes = (() => {
+    const g = {}
+    analysesFiltrees.forEach(a => { if (!g[a.date]) g[a.date] = []; g[a.date].push(a) })
+    return Object.entries(g).sort((a, b) => new Date(b[0]) - new Date(a[0]))
+  })()
+  const anormauxTotal = analysesFiltrees.filter(a => {
+    return a.normal_min !== null && a.normal_max !== null && (a.valeur < a.normal_min || a.valeur > a.normal_max)
+  })
 
   return (
     <div className="px-6 py-8">
@@ -117,7 +357,7 @@ function Rapport() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">📄 Rapport médecin</h2>
-          <p className="text-slate-500 dark:text-gray-400">Génère un rapport PDF à partager avec ton médecin.</p>
+          <p className="text-slate-500 dark:text-gray-400">Génère un rapport PDF professionnel à partager avec ton médecin.</p>
         </div>
         <button
           onClick={generatePDF}
@@ -150,216 +390,36 @@ function Rapport() {
         </div>
       </div>
 
-      {/* RAPPORT PDF */}
-      <div
-        ref={rapportRef}
-        style={{ backgroundColor: '#ffffff', color: '#111827', fontFamily: 'Arial, sans-serif', padding: '40px', width: '794px', margin: '0 auto' }}
-      >
-        {/* En-tête */}
-        <div style={{ background: 'linear-gradient(135deg, #059669, #0ea5e9)', borderRadius: '16px', padding: '30px', marginBottom: '30px', color: 'white' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h1 style={{ fontSize: '32px', fontWeight: 'bold', margin: '0 0 6px 0' }}>🩺 CrohnTrack</h1>
-              <p style={{ margin: 0, opacity: 0.85, fontSize: '15px' }}>Rapport de suivi médical — Maladie de Crohn</p>
-            </div>
-            <div style={{ textAlign: 'right', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', padding: '16px' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '18px', margin: '0 0 4px 0' }}>{nomPatient || 'Patient'}</p>
-              <p style={{ fontSize: '13px', margin: '0 0 2px 0', opacity: 0.85 }}>{formatDate(dateDebut)} — {formatDate(dateFin)}</p>
-              <p style={{ fontSize: '12px', margin: 0, opacity: 0.7 }}>Généré le {formatDate(new Date().toISOString().split('T')[0])}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Résumé visuel */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '30px' }}>
+      {/* Aperçu */}
+      <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm dark:shadow-none">
+        <h3 className="font-bold text-slate-900 dark:text-white mb-6">👁️ Aperçu du rapport</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Bilans sanguins', valeur: groupes.length, couleur: '#059669', bg: '#d1fae5', icon: '📊' },
-            { label: 'Valeurs anormales', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? '#ef4444' : '#059669', bg: anormauxTotal.length > 0 ? '#fee2e2' : '#d1fae5', icon: anormauxTotal.length > 0 ? '⚠️' : '✅' },
-            { label: 'Symptômes', valeur: symptomesFiltres.length, couleur: '#d97706', bg: '#fef3c7', icon: '🤒' },
-            { label: 'Traitements', valeur: medicaments.length, couleur: '#0ea5e9', bg: '#e0f2fe', icon: '💊' },
+            { label: 'Bilans', valeur: groupes.length, couleur: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+            { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? 'text-red-500' : 'text-emerald-500', bg: anormauxTotal.length > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20' },
+            { label: 'Symptômes', valeur: symptomesFiltres.length, couleur: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+            { label: 'Traitements', valeur: medicaments.length, couleur: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
           ].map(item => (
-            <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '12px', padding: '20px', textAlign: 'center', border: `2px solid ${item.couleur}30` }}>
-              <p style={{ fontSize: '24px', margin: '0 0 6px 0' }}>{item.icon}</p>
-              <p style={{ fontSize: '32px', fontWeight: 'bold', color: item.couleur, margin: '0 0 4px 0' }}>{item.valeur}</p>
-              <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>{item.label}</p>
+            <div key={item.label} className={`${item.bg} rounded-xl p-4 text-center`}>
+              <p className={`text-3xl font-bold ${item.couleur}`}>{item.valeur}</p>
+              <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">{item.label}</p>
             </div>
           ))}
         </div>
-
-        {/* Traitements */}
-        {medicaments.length > 0 && (
-          <div style={{ marginBottom: '30px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #0ea5e9', paddingLeft: '12px', marginBottom: '16px' }}>
-              💊 Traitements en cours
-            </h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#0ea5e9', color: 'white' }}>
-                  {['Médicament', 'Dosage', 'Fréquence', 'Depuis'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {medicaments.map((med, i) => (
-                  <tr key={med.id} style={{ backgroundColor: i % 2 === 0 ? '#f0f9ff' : '#ffffff' }}>
-                    <td style={{ padding: '10px 16px', fontWeight: '600', color: '#0369a1' }}>{med.nom}</td>
-                    <td style={{ padding: '10px 16px' }}>{med.dosage}</td>
-                    <td style={{ padding: '10px 16px', color: '#6b7280' }}>{med.frequence || '—'}</td>
-                    <td style={{ padding: '10px 16px', color: '#6b7280' }}>{formatDate(med.date_debut) || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Résumé dernières valeurs avec barres */}
-        {typesUniques.length > 0 && (
-          <div style={{ marginBottom: '30px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #059669', paddingLeft: '12px', marginBottom: '20px' }}>
-              📈 Résumé des dernières valeurs
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {typesUniques.map(type => {
-                const params = getParamsType(type)
-                const valeursType = analysesFiltrees.filter(a => a.type === type)
-                const derniere = valeursType[valeursType.length - 1]
-                if (!derniere) return null
-                const anormal = isAnormal(derniere.valeur, derniere.normal_min, derniere.normal_max)
-                const pct = params && params.normal_max
-                  ? Math.min(100, Math.round((derniere.valeur / params.normal_max) * 100))
-                  : 50
-                return (
-                  <div key={type} style={{ backgroundColor: anormal ? '#fef2f2' : '#f9fafb', borderRadius: '10px', padding: '14px', border: `1px solid ${anormal ? '#fecaca' : '#e5e7eb'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{type}</span>
-                      <span style={{ fontWeight: 'bold', fontSize: '15px', color: anormal ? '#ef4444' : '#059669' }}>
-                        {derniere.valeur} {params?.unite || ''}
-                      </span>
-                    </div>
-                    {params && (
-                      <>
-                        <div style={{ backgroundColor: '#e5e7eb', borderRadius: '999px', height: '8px', marginBottom: '4px' }}>
-                          <div style={{ backgroundColor: anormal ? '#ef4444' : '#059669', borderRadius: '999px', height: '8px', width: `${pct}%`, maxWidth: '100%' }} />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>0</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>Normal : {params.normal_min} — {params.normal_max}</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>{params.normal_max}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Bilans détaillés */}
-        {groupes.length > 0 && (
-          <div style={{ marginBottom: '30px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #059669', paddingLeft: '12px', marginBottom: '16px' }}>
-              📊 Bilans sanguins détaillés
-            </h2>
-            {groupes.map(([date, valeurs]) => {
-              const nbAnormaux = valeurs.filter(v => isAnormal(v.valeur, v.normal_min, v.normal_max)).length
-              return (
-                <div key={date} style={{ marginBottom: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', padding: '10px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ fontWeight: '700', fontSize: '15px', margin: 0 }}>🗓️ {formatDate(date)}</p>
-                    {nbAnormaux > 0 ? (
-                      <span style={{ backgroundColor: '#fee2e2', color: '#ef4444', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                        ⚠️ {nbAnormaux} valeur{nbAnormaux > 1 ? 's' : ''} anormale{nbAnormaux > 1 ? 's' : ''}
-                      </span>
-                    ) : (
-                      <span style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                        ✅ Tout normal
-                      </span>
-                    )}
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#059669', color: 'white' }}>
-                        {['Analyse', 'Valeur', 'Unité', 'Plage normale', 'Statut'].map(h => (
-                          <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '600' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {valeurs.map((a, i) => {
-                        const anormal = isAnormal(a.valeur, a.normal_min, a.normal_max)
-                        return (
-                          <tr key={a.id} style={{ backgroundColor: anormal ? '#fef2f2' : i % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
-                            <td style={{ padding: '10px 12px', fontWeight: '500' }}>{a.type}</td>
-                            <td style={{ padding: '10px 12px', fontWeight: 'bold', color: anormal ? '#ef4444' : '#059669', fontSize: '15px' }}>{a.valeur}</td>
-                            <td style={{ padding: '10px 12px', color: '#6b7280' }}>{a.unite}</td>
-                            <td style={{ padding: '10px 12px', color: '#6b7280' }}>
-                              {a.normal_min !== null ? `${a.normal_min} — ${a.normal_max}` : '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              {anormal ? (
-                                <span style={{ backgroundColor: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>⚠️ Anormal</span>
-                              ) : (
-                                <span style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>✅ Normal</span>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Symptômes */}
-        {symptomesFiltres.length > 0 && (
-          <div style={{ marginBottom: '30px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', borderLeft: '4px solid #d97706', paddingLeft: '12px', marginBottom: '16px' }}>
-              🤒 Symptômes
-            </h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#d97706', color: 'white' }}>
-                  {['Date', 'Symptôme', 'Intensité', 'Note'].map(h => (
-                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '600' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {symptomesFiltres.map((s, i) => (
-                  <tr key={s.id} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#fffbeb' }}>
-                    <td style={{ padding: '8px 12px', color: '#6b7280' }}>{formatDate(s.date)}</td>
-                    <td style={{ padding: '8px 12px', fontWeight: '500' }}>{s.type}</td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <span style={{
-                        backgroundColor: s.intensite >= 4 ? '#fee2e2' : s.intensite === 3 ? '#fef3c7' : '#d1fae5',
-                        color: s.intensite >= 4 ? '#ef4444' : s.intensite === 3 ? '#d97706' : '#059669',
-                        padding: '2px 8px', borderRadius: '20px', fontSize: '12px', fontWeight: '600'
-                      }}>
-                        {s.intensite}/5
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px 12px', color: '#6b7280' }}>{s.note || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pied de page */}
-        <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '20px', marginTop: '20px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '12px', padding: '20px' }}>
-          <p style={{ color: '#059669', fontWeight: '600', fontSize: '14px', margin: '0 0 4px 0' }}>🩺 CrohnTrack</p>
-          <p style={{ color: '#9ca3af', fontSize: '12px', margin: '0 0 4px 0' }}>Créé par Damien Chereau — atteint de la maladie de Crohn</p>
-          <p style={{ color: '#d1d5db', fontSize: '11px', margin: 0 }}>Ce rapport est un outil de suivi personnel et ne remplace pas un avis médical professionnel.</p>
+        <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+          <p className="text-slate-500 dark:text-gray-400 text-sm mb-3">
+            Le PDF sera généré avec toutes tes données pour la période sélectionnée — bilans, résumé des valeurs, symptômes et traitements.
+          </p>
+          <button
+            onClick={generatePDF}
+            disabled={generating}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50"
+          >
+            {generating ? '⏳ Génération en cours...' : '⬇️ Télécharger le rapport PDF'}
+          </button>
         </div>
-
       </div>
+
     </div>
   )
 }
