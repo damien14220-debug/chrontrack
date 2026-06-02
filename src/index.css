@@ -1,15 +1,11 @@
 @import "tailwindcss";
 
-@variant dark (&:where(.dark, .dark *));
+/* Déclaration correcte de la variante en v4 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 * {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
-
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #4b5563; }
 
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -18,3 +14,8 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }
