@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Déclaration correcte de la variante en v4 */
-@custom-variant dark (&:where(.dark, .dark *));
+/* @custom-variant dark (&:where(.dark, .dark *)); */
 
 * {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;

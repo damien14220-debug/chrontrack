@@ -229,7 +229,7 @@ function Journal() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <button onClick={() => handleEdit(entree)}
                         className="text-slate-300 dark:text-gray-600 hover:text-sky-400 transition text-sm p-1">✏️</button>
                       <button onClick={() => handleDelete(entree.id)}

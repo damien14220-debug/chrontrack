@@ -95,30 +95,32 @@ function App() {
 
       {/* SIDEBAR DESKTOP */}
       <aside className="hidden md:flex w-64 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800 min-h-screen p-6 flex-col">
+        
+        {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
           <img src="/apple-touch-icon.png" className="w-9 h-9 rounded-xl" alt="logo" />
           <h1 className="text-xl font-bold text-emerald-600 dark:text-green-400">CrohnTrack</h1>
         </div>
 
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 z-50">
-  <div className="flex items-center overflow-x-auto scrollbar-hide px-2 py-2 gap-1">
-    {navItems.map(item => (
-      <button
-        key={item.id}
-        onClick={() => setPage(item.id)}
-        className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition flex-shrink-0 min-w-[60px] ${
-          page === item.id
-            ? 'text-emerald-600 dark:text-green-400 bg-emerald-50 dark:bg-green-500/10'
-            : 'text-slate-400 dark:text-gray-600'
-        }`}
-      >
-        <span className="text-xl">{item.icon}</span>
-        <span className="text-xs font-medium whitespace-nowrap">{item.label}</span>
-      </button>
-    ))}
-  </div>
-</nav>
+        {/* ✅ LIENS DE NAVIGATION DESKTOP */}
+        <nav className="flex-1 flex flex-col gap-1">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => setPage(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium ${
+                page === item.id
+                  ? 'bg-emerald-50 dark:bg-green-500/20 text-emerald-600 dark:text-green-400 border border-emerald-200 dark:border-green-500/30'
+                  : 'text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
+        {/* Paramètres + Déconnexion */}
         <div className="border-t border-slate-200 dark:border-gray-800 pt-4 mt-4">
           <p className="text-slate-400 dark:text-gray-600 text-xs mb-3 truncate px-1">{session.user.email}</p>
           <button
@@ -159,7 +161,7 @@ function App() {
           </button>
         </header>
 
-        {/* Menu mobile déroulant */}
+        {/* Menu mobile déroulant (Paramètres + Déco) */}
         {showMobileMenu && (
           <div className="md:hidden bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-4 py-3 flex flex-col gap-2">
             <p className="text-slate-400 dark:text-gray-600 text-xs truncate">{session.user.email}</p>
@@ -183,21 +185,21 @@ function App() {
           {renderPage()}
         </main>
 
-        {/* BARRE NAV MOBILE */}
+        {/* ✅ BARRE NAV MOBILE — une seule fois, bien placée */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 px-1 py-2 z-50">
-          <div className="flex items-center justify-around">
+          <div className="flex items-center overflow-x-auto scrollbar-hide px-2 gap-1">
             {navItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setPage(item.id)}
-                className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded-xl transition flex-1 ${
+                className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition shrink-0 ${
                   page === item.id
-                    ? 'text-emerald-600 dark:text-green-400'
+                    ? 'text-emerald-600 dark:text-green-400 bg-emerald-50 dark:bg-green-500/10'
                     : 'text-slate-400 dark:text-gray-600'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
-                <span className="text-xs font-medium">{item.label}</span>
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-xs font-medium whitespace-nowrap">{item.label}</span>
               </button>
             ))}
           </div>

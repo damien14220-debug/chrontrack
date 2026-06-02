@@ -104,7 +104,7 @@ function Login({ toggleTheme, dark }) {
             <div className="max-w-3xl mx-auto">
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 text-center">Pourquoi j'ai créé CrohnTrack</h3>
               <div className="flex flex-col md:flex-row gap-8 items-start">
-                <div className="flex-shrink-0 text-center">
+                  <div className="shrink-0 text-center">
                   <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 rounded-full flex items-center justify-center text-4xl mx-auto mb-3">
                     👨‍💻
                   </div>
