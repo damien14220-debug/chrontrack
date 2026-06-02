@@ -16,10 +16,19 @@ function Medicaments() {
   const [medicaments, setMedicaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ nom: '', dosage: '', frequence: '', heure_rappel: '', date_debut: '', note: '' })
+  const [notifPermission, setNotifPermission] = useState('default')
+  const [form, setForm] = useState({
+    nom: '', dosage: '', frequence: '', heure_rappel: '', date_debut: '', note: ''
+  })
   const [editId, setEditId] = useState(null)
 
-  useEffect(() => { fetchMedicaments() }, [])
+  useEffect(() => {
+    fetchMedicaments()
+    if ('Notification' in window) {
+      setNotifPermission(Notification.permission)
+    }
+    schedulerNotifications()
+  }, [])
 
   const fetchMedicaments = async () => {
     setLoading(true)
@@ -28,13 +37,49 @@ function Medicaments() {
     setLoading(false)
   }
 
+  const demanderPermissionNotif = async () => {
+    if (!('Notification' in window)) return
+    const permission = await Notification.requestPermission()
+    setNotifPermission(permission)
+    if (permission === 'granted') {
+      schedulerNotifications()
+    }
+  }
+
+  const schedulerNotifications = () => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return
+    // Vérifie toutes les minutes si un rappel doit se déclencher
+    const checkRappels = () => {
+      const now = new Date()
+      const heureActuelle = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      medicaments.forEach(med => {
+        if (med.heure_rappel && med.heure_rappel.substring(0, 5) === heureActuelle) {
+          new Notification(`💊 Rappel médicament`, {
+            body: `Il est l'heure de prendre ${med.nom} — ${med.dosage}`,
+            icon: '/apple-touch-icon.png',
+          })
+        }
+      })
+    }
+    setInterval(checkRappels, 60000)
+  }
+
+  const testerNotification = () => {
+    if (Notification.permission === 'granted') {
+      new Notification('💊 Test CrohnTrack', {
+        body: 'Les notifications médicaments sont activées !',
+        icon: '/apple-touch-icon.png',
+      })
+    }
+  }
+
   const handleSubmit = async () => {
     if (!form.nom || !form.dosage) return
+    const { data: { user } } = await supabase.auth.getUser()
     if (editId) {
       await supabase.from('medicaments').update(form).eq('id', editId)
       setEditId(null)
     } else {
-      const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('medicaments').insert([{ ...form, user_id: user.id }])
     }
     setForm({ nom: '', dosage: '', frequence: '', heure_rappel: '', date_debut: '', note: '' })
@@ -43,7 +88,10 @@ function Medicaments() {
   }
 
   const handleEdit = (med) => {
-    setForm({ nom: med.nom, dosage: med.dosage, frequence: med.frequence || '', heure_rappel: med.heure_rappel || '', date_debut: med.date_debut || '', note: med.note || '' })
+    setForm({
+      nom: med.nom, dosage: med.dosage, frequence: med.frequence || '',
+      heure_rappel: med.heure_rappel || '', date_debut: med.date_debut || '', note: med.note || ''
+    })
     setEditId(med.id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -78,6 +126,47 @@ function Medicaments() {
         </button>
       </div>
 
+      {/* Bloc notifications */}
+      <div className={`rounded-2xl p-5 mb-8 border shadow-sm dark:shadow-none ${
+        notifPermission === 'granted'
+          ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/40'
+          : 'bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800'
+      }`}>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+              notifPermission === 'granted' ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-gray-700'
+            }`}>
+              🔔
+            </div>
+            <div>
+              <p className="font-bold text-slate-900 dark:text-white">Rappels médicaments</p>
+              <p className="text-slate-500 dark:text-gray-400 text-sm">
+                {notifPermission === 'granted'
+                  ? '✅ Notifications activées — tu seras rappelé à l\'heure prévue'
+                  : notifPermission === 'denied'
+                  ? '❌ Notifications bloquées — autorise-les dans les paramètres du navigateur'
+                  : '⏳ Active les notifications pour recevoir des rappels'}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {notifPermission !== 'granted' && notifPermission !== 'denied' && (
+              <button onClick={demanderPermissionNotif}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-xl transition text-sm">
+                Activer les rappels
+              </button>
+            )}
+            {notifPermission === 'granted' && (
+              <button onClick={testerNotification}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-xl transition text-sm">
+                🔔 Tester
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Formulaire */}
       {showForm && (
         <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 mb-8 shadow-sm dark:shadow-none">
@@ -88,62 +177,41 @@ function Medicaments() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Nom du médicament</label>
-              <input
-                type="text"
-                value={form.nom}
-                onChange={e => setForm({ ...form, nom: e.target.value })}
+              <input type="text" value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value })}
                 placeholder="Ex: Pentasa, Humira..."
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none"
-              />
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none" />
             </div>
             <div>
               <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Dosage</label>
-              <input
-                type="text"
-                value={form.dosage}
-                onChange={e => setForm({ ...form, dosage: e.target.value })}
+              <input type="text" value={form.dosage} onChange={e => setForm({ ...form, dosage: e.target.value })}
                 placeholder="Ex: 500mg, 40mg/0.8mL..."
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none"
-              />
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none" />
             </div>
             <div>
               <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Fréquence</label>
-              <select
-                value={form.frequence}
-                onChange={e => setForm({ ...form, frequence: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none"
-              >
+              <select value={form.frequence} onChange={e => setForm({ ...form, frequence: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none">
                 <option value="">-- Choisir --</option>
                 {FREQUENCES.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Heure de rappel</label>
-              <input
-                type="time"
-                value={form.heure_rappel}
-                onChange={e => setForm({ ...form, heure_rappel: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none"
-              />
+              <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">
+                Heure de rappel 🔔
+              </label>
+              <input type="time" value={form.heure_rappel} onChange={e => setForm({ ...form, heure_rappel: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none" />
             </div>
             <div>
               <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date de début</label>
-              <input
-                type="date"
-                value={form.date_debut}
-                onChange={e => setForm({ ...form, date_debut: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none"
-              />
+              <input type="date" value={form.date_debut} onChange={e => setForm({ ...form, date_debut: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none" />
             </div>
             <div>
               <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Note (optionnel)</label>
-              <input
-                type="text"
-                value={form.note}
-                onChange={e => setForm({ ...form, note: e.target.value })}
+              <input type="text" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}
                 placeholder="Remarques, effets secondaires..."
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none"
-              />
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-sky-500 outline-none" />
             </div>
           </div>
 
@@ -186,10 +254,37 @@ function Medicaments() {
               </div>
 
               <div className="flex flex-col gap-2">
-                {med.frequence && <div className="flex items-center gap-2 text-sm"><span className="text-slate-400">🔄</span><span className="text-slate-600 dark:text-gray-300">{med.frequence}</span></div>}
-                {med.heure_rappel && <div className="flex items-center gap-2 text-sm"><span className="text-slate-400">⏰</span><span className="text-slate-600 dark:text-gray-300">Rappel à {med.heure_rappel}</span></div>}
-                {med.date_debut && <div className="flex items-center gap-2 text-sm"><span className="text-slate-400">📅</span><span className="text-slate-600 dark:text-gray-300">Depuis le {formatDate(med.date_debut)}</span></div>}
-                {med.note && <div className="flex items-center gap-2 text-sm mt-1"><span className="text-slate-400">📝</span><span className="text-slate-500 dark:text-gray-400">{med.note}</span></div>}
+                {med.frequence && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-slate-400">🔄</span>
+                    <span className="text-slate-600 dark:text-gray-300">{med.frequence}</span>
+                  </div>
+                )}
+                {med.heure_rappel && (
+                  <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-xl ${
+                    notifPermission === 'granted'
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-slate-50 dark:bg-gray-800 text-slate-600 dark:text-gray-300'
+                  }`}>
+                    <span>🔔</span>
+                    <span className="font-medium">Rappel à {med.heure_rappel}</span>
+                    {notifPermission !== 'granted' && (
+                      <span className="text-xs text-slate-400 ml-auto">Notifs désactivées</span>
+                    )}
+                  </div>
+                )}
+                {med.date_debut && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-slate-400">📅</span>
+                    <span className="text-slate-600 dark:text-gray-300">Depuis le {formatDate(med.date_debut)}</span>
+                  </div>
+                )}
+                {med.note && (
+                  <div className="flex items-center gap-2 text-sm mt-1">
+                    <span className="text-slate-400">📝</span>
+                    <span className="text-slate-500 dark:text-gray-400">{med.note}</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
