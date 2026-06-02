@@ -24,10 +24,7 @@ function Journal() {
 
   const fetchEntrees = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('journal')
-      .select('*')
-      .order('date', { ascending: false })
+    const { data } = await supabase.from('journal').select('*').order('date', { ascending: false })
     if (data) setEntrees(data)
     setLoading(false)
   }
@@ -50,6 +47,7 @@ function Journal() {
     setForm({ date: entree.date, titre: entree.titre, contenu: entree.contenu, categorie: entree.categorie || '' })
     setEditId(entree.id)
     setShowForm(true)
+    setEntreeOuverte(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -68,7 +66,9 @@ function Journal() {
   const getCategorieInfo = (label) => CATEGORIES.find(c => c.label === label) || { emoji: '📝', label: 'Note' }
 
   const entreesFiltrees = entrees.filter(e => {
-    const matchRecherche = recherche === '' || e.titre.toLowerCase().includes(recherche.toLowerCase()) || e.contenu.toLowerCase().includes(recherche.toLowerCase())
+    const matchRecherche = recherche === '' ||
+      e.titre.toLowerCase().includes(recherche.toLowerCase()) ||
+      e.contenu.toLowerCase().includes(recherche.toLowerCase())
     const matchCategorie = categorieFiltre === '' || e.categorie === categorieFiltre
     return matchRecherche && matchCategorie
   })
@@ -130,8 +130,7 @@ function Journal() {
           <div className="mb-6">
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Contenu</label>
             <textarea value={form.contenu} onChange={e => setForm({ ...form, contenu: e.target.value })}
-              placeholder="Écris ici ton article, observation, note..."
-              rows={10}
+              placeholder="Écris ici ton article, observation, note..." rows={10}
               className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm focus:border-purple-500 outline-none resize-none leading-relaxed" />
           </div>
 
@@ -148,17 +147,12 @@ function Journal() {
 
       {/* Filtres */}
       {entrees.length > 0 && (
-        <div className="flex flex-col md:flex-row gap-3 mb-6">
-          <input
-            type="text"
-            value={recherche}
-            onChange={e => setRecherche(e.target.value)}
-            placeholder="🔍 Rechercher..."
-            className="flex-1 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-purple-500 outline-none shadow-sm"
-          />
+        <div className="flex flex-col gap-3 mb-6">
+          <input type="text" value={recherche} onChange={e => setRecherche(e.target.value)}
+            placeholder="🔍 Rechercher dans le journal..."
+            className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-purple-500 outline-none shadow-sm" />
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setCategorieFiltre('')}
+            <button onClick={() => setCategorieFiltre('')}
               className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
                 categorieFiltre === ''
                   ? 'bg-purple-50 dark:bg-purple-500/20 border-purple-300 dark:border-purple-500/50 text-purple-600 dark:text-purple-400'
@@ -168,9 +162,7 @@ function Journal() {
               Tout
             </button>
             {CATEGORIES.map(c => (
-              <button
-                key={c.label}
-                onClick={() => setCategorieFiltre(c.label)}
+              <button key={c.label} onClick={() => setCategorieFiltre(c.label)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
                   categorieFiltre === c.label
                     ? 'bg-purple-50 dark:bg-purple-500/20 border-purple-300 dark:border-purple-500/50 text-purple-600 dark:text-purple-400'
@@ -184,7 +176,7 @@ function Journal() {
         </div>
       )}
 
-      {/* Liste */}
+      {/* Liste — titre seulement, contenu sur clic */}
       {loading ? (
         <div className="text-center text-slate-500 dark:text-gray-500 py-12">Chargement...</div>
       ) : entreesFiltrees.length === 0 ? (
@@ -198,53 +190,66 @@ function Journal() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {entreesFiltrees.map(entree => {
             const cat = getCategorieInfo(entree.categorie)
             const ouverte = entreeOuverte === entree.id
+            const nbMots = entree.contenu.split(' ').length
+            const tempsLecture = Math.max(1, Math.round(nbMots / 200))
             return (
               <div key={entree.id} className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
-                <button
-                  onClick={() => setEntreeOuverte(ouverte ? null : entree.id)}
-                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 dark:hover:bg-gray-800 transition text-left"
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    <span className="text-2xl">{cat.emoji}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <p className="font-bold text-slate-900 dark:text-white">{entree.titre}</p>
-                        {entree.categorie && (
-                          <span className="bg-purple-50 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-500/30">
-                            {entree.categorie}
-                          </span>
+
+                {/* En-tête — toujours visible */}
+                <div className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1">
+                      <span className="text-2xl mt-0.5">{cat.emoji}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h3 className="font-bold text-slate-900 dark:text-white">{entree.titre}</h3>
+                          {entree.categorie && (
+                            <span className="bg-purple-50 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-500/30">
+                              {entree.categorie}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-gray-500">
+                          <span className="capitalize">{formatDate(entree.date)}</span>
+                          <span>·</span>
+                          <span>{nbMots} mots</span>
+                          <span>·</span>
+                          <span>{tempsLecture} min de lecture</span>
+                        </div>
+                        {/* Aperçu du contenu — 1 ligne */}
+                        {!ouverte && (
+                          <p className="text-slate-400 dark:text-gray-500 text-sm mt-2 line-clamp-1">
+                            {entree.contenu}
+                          </p>
                         )}
                       </div>
-                      <p className="text-slate-400 dark:text-gray-500 text-sm capitalize">{formatDate(entree.date)}</p>
-                      {!ouverte && (
-                        <p className="text-slate-500 dark:text-gray-400 text-sm mt-1 line-clamp-1">
-                          {entree.contenu.substring(0, 100)}...
-                        </p>
-                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => handleEdit(entree)}
+                        className="text-slate-300 dark:text-gray-600 hover:text-sky-400 transition text-sm p-1">✏️</button>
+                      <button onClick={() => handleDelete(entree.id)}
+                        className="text-slate-300 dark:text-gray-600 hover:text-red-400 transition text-sm p-1">🗑️</button>
+                      <button
+                        onClick={() => setEntreeOuverte(ouverte ? null : entree.id)}
+                        className="text-slate-400 dark:text-gray-500 hover:text-purple-500 transition text-sm px-3 py-1 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-purple-300"
+                      >
+                        {ouverte ? 'Fermer ▲' : 'Lire ▼'}
+                      </button>
                     </div>
                   </div>
-                  <span className="text-slate-400 dark:text-gray-500 ml-4">{ouverte ? '▲' : '▼'}</span>
-                </button>
+                </div>
 
+                {/* Contenu — visible seulement si ouvert */}
                 {ouverte && (
                   <div className="border-t border-slate-100 dark:border-gray-800 px-6 py-5">
-                    <p className="text-slate-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap mb-4">
+                    <p className="text-slate-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
                       {entree.contenu}
                     </p>
-                    <div className="flex gap-3">
-                      <button onClick={() => handleEdit(entree)}
-                        className="bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-300 text-sm px-4 py-2 rounded-xl transition">
-                        ✏️ Modifier
-                      </button>
-                      <button onClick={() => handleDelete(entree.id)}
-                        className="bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-400 text-sm px-4 py-2 rounded-xl transition">
-                        🗑️ Supprimer
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>

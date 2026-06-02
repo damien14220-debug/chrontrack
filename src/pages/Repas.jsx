@@ -19,6 +19,7 @@ function Repas() {
   const [repas, setRepas] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({ date: '', moment: '', aliments: '', reaction: '', note: '' })
   const [joursOuverts, setJoursOuverts] = useState({})
 
@@ -37,10 +38,22 @@ function Repas() {
   const handleSubmit = async () => {
     if (!form.date || !form.moment || !form.aliments) return
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('repas').insert([{ ...form, user_id: user.id }])
+    if (editId) {
+      await supabase.from('repas').update({ ...form, user_id: user.id }).eq('id', editId)
+      setEditId(null)
+    } else {
+      await supabase.from('repas').insert([{ ...form, user_id: user.id }])
+    }
     setForm({ date: '', moment: '', aliments: '', reaction: '', note: '' })
     setShowForm(false)
     fetchRepas()
+  }
+
+  const handleEdit = (r) => {
+    setForm({ date: r.date, moment: r.moment, aliments: r.aliments, reaction: r.reaction || '', note: r.note || '' })
+    setEditId(r.id)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleDelete = async (id) => {
@@ -83,7 +96,7 @@ function Repas() {
           <p className="text-slate-500 dark:text-gray-400">Suis tes repas et identifie les aliments déclencheurs.</p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ date: '', moment: '', aliments: '', reaction: '', note: '' }) }}
           className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-xl transition"
         >
           + Ajouter un repas
@@ -93,25 +106,21 @@ function Repas() {
       {/* Formulaire */}
       {showForm && (
         <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 mb-8 shadow-sm dark:shadow-none">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">🍴 Nouveau repas</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">
+            {editId ? '✏️ Modifier le repas' : '🍴 Nouveau repas'}
+          </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
               <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Date</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={e => setForm({ ...form, date: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white"
-              />
+              <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white" />
             </div>
             <div>
               <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Moment</label>
               <div className="flex gap-2">
                 {MOMENTS.map(m => (
-                  <button
-                    key={m.label}
-                    onClick={() => setForm({ ...form, moment: m.label })}
+                  <button key={m.label} onClick={() => setForm({ ...form, moment: m.label })}
                     className={`flex-1 py-3 rounded-xl text-sm font-medium transition border ${
                       form.moment === m.label
                         ? 'bg-orange-50 dark:bg-orange-500/20 border-orange-300 dark:border-orange-500/50 text-orange-600 dark:text-orange-400'
@@ -127,22 +136,16 @@ function Repas() {
 
           <div className="mb-4">
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Aliments consommés</label>
-            <textarea
-              value={form.aliments}
-              onChange={e => setForm({ ...form, aliments: e.target.value })}
-              placeholder="Ex: Riz blanc, poulet grillé, carottes cuites..."
-              rows={3}
-              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm focus:border-orange-500 outline-none resize-none"
-            />
+            <textarea value={form.aliments} onChange={e => setForm({ ...form, aliments: e.target.value })}
+              placeholder="Ex: Riz blanc, poulet grillé, carottes cuites..." rows={3}
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm focus:border-orange-500 outline-none resize-none" />
           </div>
 
           <div className="mb-4">
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-3 block">Réaction après le repas</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {REACTIONS.map(r => (
-                <button
-                  key={r.label}
-                  onClick={() => setForm({ ...form, reaction: r.label })}
+                <button key={r.label} onClick={() => setForm({ ...form, reaction: r.label })}
                   className={`py-3 px-4 rounded-xl text-sm font-medium transition border ${
                     form.reaction === r.label ? r.classe : 'bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700 text-slate-500 dark:text-gray-500'
                   }`}
@@ -156,20 +159,16 @@ function Repas() {
 
           <div className="mb-6">
             <label className="text-slate-500 dark:text-gray-400 text-sm mb-2 block">Note (optionnel)</label>
-            <input
-              type="text"
-              value={form.note}
-              onChange={e => setForm({ ...form, note: e.target.value })}
+            <input type="text" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}
               placeholder="Remarques, aliments suspects..."
-              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm focus:border-orange-500 outline-none"
-            />
+              className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm focus:border-orange-500 outline-none" />
           </div>
 
           <div className="flex gap-3">
             <button onClick={handleSubmit} className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-xl transition">
-              Enregistrer
+              {editId ? 'Modifier' : 'Enregistrer'}
             </button>
-            <button onClick={() => setShowForm(false)} className="bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-semibold px-6 py-3 rounded-xl transition">
+            <button onClick={() => { setShowForm(false); setEditId(null) }} className="bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-semibold px-6 py-3 rounded-xl transition">
               Annuler
             </button>
           </div>
@@ -228,9 +227,12 @@ function Repas() {
                               <p className="text-slate-500 dark:text-gray-400 text-sm">{r.aliments}</p>
                               {r.note && <p className="text-slate-400 dark:text-gray-600 text-xs mt-1">📝 {r.note}</p>}
                             </div>
-                            <button onClick={() => handleDelete(r.id)} className="text-slate-300 dark:text-gray-600 hover:text-red-400 text-xs transition ml-4">
-                              🗑️
-                            </button>
+                            <div className="flex gap-2 ml-4">
+                              <button onClick={() => handleEdit(r)}
+                                className="text-slate-300 dark:text-gray-600 hover:text-sky-400 text-xs transition">✏️</button>
+                              <button onClick={() => handleDelete(r.id)}
+                                className="text-slate-300 dark:text-gray-600 hover:text-red-400 text-xs transition">🗑️</button>
+                            </div>
                           </div>
                         </div>
                       )

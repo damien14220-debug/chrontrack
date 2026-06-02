@@ -109,17 +109,18 @@ function Login({ toggleTheme, dark }) {
                     👨‍💻
                   </div>
                   <p className="text-emerald-600 dark:text-emerald-400 font-semibold">Damien Chereau</p>
-                  <p className="text-slate-400 dark:text-gray-600 text-xs">Créateur de CrohnTrack</p>
+                  <p className="text-slate-400 dark:text-gray-600 text-xs">Créateur de CrohnTrack.</p>
+                  <p className="text-slate-400 dark:text-gray-600 text-xs">Crée par un patient, pour les patients.</p>
                 </div>
                 <div className="flex-1">
                   <p className="text-slate-600 dark:text-gray-300 leading-relaxed mb-4">
-                    Je m'appelle Damien Chereau et j'ai la maladie de Crohn. Comme beaucoup de malades, je me retrouvais à chercher mes anciens résultats d'analyses dans des piles de papier, à essayer de me rappeler quand avait commencé tel symptôme, ou à ne plus savoir quel aliment me posait problème.
+                    Je m'appelle Damien Chereau et j'ai la maladie de Crohn deuis près de 7 ans. Comme beaucoup, je me retrouvais à chercher mes anciens résultats d'analyses dans des piles de papier, à essayer de me rappeler quand avait commencé tel symptôme, ou à ne plus savoir quel aliment me posait problème.
                   </p>
                   <p className="text-slate-600 dark:text-gray-300 leading-relaxed mb-4">
-                    J'ai cherché une application qui centralise tout ça — les analyses sanguines, les symptômes, les repas, les médicaments — sans en trouver une qui me convenait vraiment. Alors j'ai décidé de la créer moi-même.
+                    J'ai cherché une application qui centralise tout ça — les analyses sanguines, les symptômes, les repas, les médicaments... sans en trouver une qui me convenait vraiment. Alors j'ai décidé de la créer moi-même avec des fonctionnalités supplémentaires (sport, écriture) qui sont dès maintenant disponibles.
                   </p>
                   <p className="text-slate-600 dark:text-gray-300 leading-relaxed mb-4">
-                    CrohnTrack est né de ce besoin personnel. Je la partage gratuitement avec tous les malades de Crohn et de MICI, en espérant qu'elle puisse aider d'autres personnes à mieux suivre leur maladie et à mieux communiquer avec leurs médecins.
+                    Alors, CrohnTrack est né de ce besoin personnel. Je la partage gratuitement avec tous les malades de Crohn et de MICI en règle générale, en espérant qu'elle puisse aider d'autres personnes à mieux suivre leur maladie et à mieux communiquer avec leurs médecins. Faisons en sorte que cette maladie ne soit pas une fatalité. Ayant l'ensemble des données permettant de comprendre cette maladie invalidante.
                   </p>
                   <div className="bg-amber-50 dark:bg-yellow-900/20 border border-amber-200 dark:border-yellow-800/40 rounded-xl px-4 py-3">
                     <p className="text-amber-700 dark:text-yellow-400 text-sm">

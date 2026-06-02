@@ -98,35 +98,49 @@ function Sport() {
     window.location.href = authUrl
   }
 
-  const importStravaActivities = async (token) => {
-    setStravaLoading(true)
-    try {
-      const response = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=50', {
-        headers: { 'Authorization': `Bearer ${token}` }
+const importStravaActivities = async (token) => {
+  setStravaLoading(true)
+  try {
+    const response = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=50', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const activities = await response.json()
+    if (!Array.isArray(activities)) return
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Récupère toutes les séances existantes avec leur note Strava
+    const { data: existantes } = await supabase
+      .from('sport')
+      .select('note')
+      .eq('user_id', user.id)
+
+    const notesExistantes = new Set(existantes?.map(e => e.note) || [])
+
+    const lignes = []
+    for (const a of activities) {
+      const noteStrava = `Strava — ${a.id}`
+      if (notesExistantes.has(noteStrava)) continue
+      lignes.push({
+        date: a.start_date_local.split('T')[0],
+        sport: getSportFromStrava(a.type),
+        duree: Math.round(a.moving_time / 60),
+        distance: a.distance > 0 ? Math.round(a.distance / 100) / 10 : null,
+        energie_avant: 3,
+        energie_apres: 3,
+        sensation_ventre: 5,
+        symptomes_ventre: '',
+        note: noteStrava,
+        user_id: user.id
       })
-      const activities = await response.json()
-      if (!Array.isArray(activities)) return
-      const { data: { user } } = await supabase.auth.getUser()
-      for (const a of activities) {
-        const ligne = {
-          date: a.start_date_local.split('T')[0],
-          sport: getSportFromStrava(a.type),
-          duree: Math.round(a.moving_time / 60),
-          distance: a.distance > 0 ? Math.round(a.distance / 100) / 10 : null,
-          energie_avant: 3, energie_apres: 3, sensation_ventre: 5,
-          symptomes_ventre: '', note: `Strava — ${a.name}`,
-          user_id: user.id
-        }
-        const { data: existing } = await supabase.from('sport').select('id')
-          .eq('date', ligne.date).eq('note', ligne.note).eq('user_id', user.id)
-        if (!existing || existing.length === 0) {
-          await supabase.from('sport').insert([ligne])
-        }
-      }
-      fetchSeances()
-    } catch(e) { console.error('Erreur import Strava:', e) }
-    setStravaLoading(false)
-  }
+    }
+
+    if (lignes.length > 0) {
+      await supabase.from('sport').insert(lignes)
+    }
+    fetchSeances()
+  } catch(e) { console.error('Erreur import Strava:', e) }
+  setStravaLoading(false)
+}
 
   const syncStrava = async () => {
     const token = localStorage.getItem('strava_access_token')
