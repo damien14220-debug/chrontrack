@@ -93,16 +93,16 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-950 text-slate-900 dark:text-white flex">
 
-      {/* SIDEBAR DESKTOP */}
+      {/* ======================== SIDEBAR DESKTOP ======================== */}
       <aside className="hidden md:flex w-64 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800 min-h-screen p-6 flex-col">
-        
+
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
           <img src="/apple-touch-icon.png" className="w-9 h-9 rounded-xl" alt="logo" />
           <h1 className="text-xl font-bold text-emerald-600 dark:text-green-400">CrohnTrack</h1>
         </div>
 
-        {/* ✅ LIENS DE NAVIGATION DESKTOP */}
+        {/* Navigation */}
         <nav className="flex-1 flex flex-col gap-1">
           {navItems.map(item => (
             <button
@@ -120,9 +120,10 @@ function App() {
           ))}
         </nav>
 
-        {/* Paramètres + Déconnexion */}
+        {/* Bas de sidebar : Paramètres + Dark/Light + Déconnexion */}
         <div className="border-t border-slate-200 dark:border-gray-800 pt-4 mt-4">
           <p className="text-slate-400 dark:text-gray-600 text-xs mb-3 truncate px-1">{session.user.email}</p>
+          
           <button
             onClick={() => setPage('parametres')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium mb-1 ${
@@ -134,6 +135,15 @@ function App() {
             <span className="text-lg">⚙️</span>
             Paramètres
           </button>
+
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium mb-1 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
+          >
+            <span className="text-lg">{dark ? '☀️' : '🌙'}</span>
+            {dark ? 'Mode jour' : 'Mode nuit'}
+          </button>
+
           <button
             onClick={async () => { await supabase.auth.signOut(); setSession(null); setPage('dashboard') }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium text-slate-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500"
@@ -142,9 +152,11 @@ function App() {
             Se déconnecter
           </button>
         </div>
-      </aside>
 
-      {/* CONTENU PRINCIPAL */}
+      </aside>
+      {/* ======================== FIN SIDEBAR ======================== */}
+
+      {/* ======================== CONTENU PRINCIPAL ======================== */}
       <div className="flex-1 flex flex-col min-h-screen">
 
         {/* Header mobile */}
@@ -161,7 +173,7 @@ function App() {
           </button>
         </header>
 
-        {/* Menu mobile déroulant (Paramètres + Déco) */}
+        {/* Menu mobile déroulant */}
         {showMobileMenu && (
           <div className="md:hidden bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-4 py-3 flex flex-col gap-2">
             <p className="text-slate-400 dark:text-gray-600 text-xs truncate">{session.user.email}</p>
@@ -172,6 +184,12 @@ function App() {
               ⚙️ Paramètres
             </button>
             <button
+              onClick={() => { toggleTheme(); setShowMobileMenu(false) }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
+            >
+              {dark ? '☀️' : '🌙'} {dark ? 'Mode jour' : 'Mode nuit'}
+            </button>
+            <button
               onClick={async () => { await supabase.auth.signOut(); setSession(null); setPage('dashboard') }}
               className="flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
@@ -180,12 +198,12 @@ function App() {
           </div>
         )}
 
-        {/* Contenu */}
+        {/* Page active */}
         <main className="flex-1 overflow-auto pb-24 md:pb-0">
           {renderPage()}
         </main>
 
-        {/* ✅ BARRE NAV MOBILE — une seule fois, bien placée */}
+        {/* Barre nav mobile */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 px-1 py-2 z-50">
           <div className="flex items-center overflow-x-auto scrollbar-hide px-2 gap-1">
             {navItems.map(item => (
@@ -206,6 +224,8 @@ function App() {
         </nav>
 
       </div>
+      {/* ======================== FIN CONTENU ======================== */}
+
     </div>
   )
 }
