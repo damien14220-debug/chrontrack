@@ -39,10 +39,10 @@ function App() {
   }, [])
 
   const toggleTheme = () => {
-    const newTheme = !dark
-    setDark(newTheme)
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light')
-    if (newTheme) {
+    const newDark = !dark
+    setDark(newDark)
+    localStorage.setItem('theme', newDark ? 'dark' : 'light')
+    if (newDark) {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
@@ -120,10 +120,10 @@ function App() {
           ))}
         </nav>
 
-        {/* Bas de sidebar : Paramètres + Dark/Light + Déconnexion */}
+        {/* Bas sidebar */}
         <div className="border-t border-slate-200 dark:border-gray-800 pt-4 mt-4">
           <p className="text-slate-400 dark:text-gray-600 text-xs mb-3 truncate px-1">{session.user.email}</p>
-          
+
           <button
             onClick={() => setPage('parametres')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium mb-1 ${
@@ -203,9 +203,12 @@ function App() {
           {renderPage()}
         </main>
 
-        {/* Barre nav mobile */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 px-1 py-2 z-50">
-          <div className="flex items-center overflow-x-auto scrollbar-hide px-2 gap-1">
+        {/* ======================== BARRE NAV MOBILE ======================== */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 z-50">
+          <div
+            className="flex overflow-x-auto scrollbar-hide px-2 py-2 gap-1"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -222,6 +225,7 @@ function App() {
             ))}
           </div>
         </nav>
+        {/* ======================== FIN NAV MOBILE ======================== */}
 
       </div>
       {/* ======================== FIN CONTENU ======================== */}
