@@ -22,13 +22,40 @@ const ANALYSES_DEFAULT = [
   { type: 'Zinc', unite: 'µmol/L', normal_min: 10, normal_max: 18, description: 'Oligo-élément important pour l\'immunité et la cicatrisation. Fréquemment bas dans le Crohn.' },
 ]
 
+const NAV_DEFAULT = [
+  { id: 'dashboard', label: 'Accueil', icon: '🏠' },
+  { id: 'analyses', label: 'Analyses', icon: '📊' },
+  { id: 'statistiques', label: 'Stats', icon: '📈' },
+  { id: 'symptomes', label: 'Symptômes', icon: '🤒' },
+  { id: 'repas', label: 'Repas', icon: '🍽️' },
+  { id: 'medicaments', label: 'Médocs', icon: '💊' },
+  { id: 'sport', label: 'Sport', icon: '🏃' },
+  { id: 'journal', label: 'Journal', icon: '📓' },
+  { id: 'rapport', label: 'Rapport', icon: '📄' },
+  { id: 'assistant', label: 'IA', icon: '🤖' },
+  { id: 'science', label: 'Science', icon: '🔬' },
+]
+
 function Parametres({ toggleTheme, dark }) {
   const [parametres, setParametres] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [analysesOuvertes, setAnalysesOuvertes] = useState(false)
+  const [navItems, setNavItems] = useState([])
+  const [dragIndex, setDragIndex] = useState(null)
+  const [navSaved, setNavSaved] = useState(false)
 
-  useEffect(() => { fetchParametres() }, [])
+  useEffect(() => {
+    fetchParametres()
+    // Charger l'ordre des onglets depuis localStorage
+    const savedNav = localStorage.getItem('navOrder')
+    if (savedNav) {
+      setNavItems(JSON.parse(savedNav))
+    } else {
+      setNavItems(NAV_DEFAULT)
+    }
+  }, [])
 
   const fetchParametres = async () => {
     setLoading(true)
@@ -70,81 +97,247 @@ function Parametres({ toggleTheme, dark }) {
     setTimeout(() => setSaved(false), 3000)
   }
 
+  // Drag & drop onglets
+  const handleDragStart = (index) => setDragIndex(index)
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    if (dragIndex === null || dragIndex === index) return
+    const newItems = [...navItems]
+    const dragged = newItems.splice(dragIndex, 1)[0]
+    newItems.splice(index, 0, dragged)
+    setNavItems(newItems)
+    setDragIndex(index)
+  }
+
+  const handleDragEnd = () => setDragIndex(null)
+
+  const moveItem = (index, direction) => {
+    const newItems = [...navItems]
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= newItems.length) return
+    ;[newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]]
+    setNavItems(newItems)
+  }
+
+  const saveNavOrder = () => {
+    localStorage.setItem('navOrder', JSON.stringify(navItems))
+    setNavSaved(true)
+    setTimeout(() => setNavSaved(false), 3000)
+    // Forcer le rechargement pour que App.jsx prenne en compte le nouvel ordre
+    window.dispatchEvent(new Event('navOrderChanged'))
+  }
+
+  const resetNavOrder = () => {
+    setNavItems(NAV_DEFAULT)
+    localStorage.removeItem('navOrder')
+  }
+
   if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
 
   return (
-    <div className="px-6 py-8">
+    <div className="px-3 py-4 md:px-6 md:py-8 max-w-4xl">
 
-      <div className="flex items-center justify-between mb-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">⚙️ Paramètres</h2>
-          <p className="text-slate-500 dark:text-gray-400">Personnalise tes valeurs normales de référence.</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">⚙️ Paramètres</h2>
+          <p className="text-slate-500 dark:text-gray-400 text-sm">Personnalise ton expérience CrohnTrack.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <button
+          onClick={toggleTheme}
+          className="bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-white font-semibold px-4 py-3 rounded-xl transition flex items-center gap-2 self-start sm:self-auto"
+        >
+          {dark ? '☀️ Mode jour' : '🌙 Mode nuit'}
+        </button>
+      </div>
+
+      {/* ===== SECTION ORDRE DES ONGLETS ===== */}
+      <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl mb-4 shadow-sm dark:shadow-none overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-gray-800">
+          <h3 className="font-bold text-slate-900 dark:text-white text-base">🗂️ Ordre des onglets</h3>
+          <p className="text-slate-400 dark:text-gray-500 text-xs mt-0.5">
+            Glisse pour réordonner — ou utilise les flèches sur mobile.
+          </p>
+        </div>
+
+        <div className="p-4 flex flex-col gap-2">
+          {navItems.map((item, index) => (
+            <div
+              key={item.id}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition cursor-grab active:cursor-grabbing ${
+                dragIndex === index
+                  ? 'bg-emerald-50 dark:bg-green-500/10 border-emerald-300 dark:border-green-500/50 opacity-70'
+                  : 'bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700'
+              }`}
+            >
+              {/* Poignée drag */}
+              <span className="text-slate-300 dark:text-gray-600 text-lg select-none">⠿</span>
+              {/* Icône + label */}
+              <span className="text-xl">{item.icon}</span>
+              <span className="flex-1 text-sm font-medium text-slate-700 dark:text-gray-300">{item.label}</span>
+              {/* Flèches mobile */}
+              <div className="flex gap-1">
+                <button
+                  onClick={() => moveItem(index, -1)}
+                  disabled={index === 0}
+                  className="p-1.5 rounded-lg bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-400 dark:text-gray-400 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-gray-600 transition text-xs"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => moveItem(index, 1)}
+                  disabled={index === navItems.length - 1}
+                  className="p-1.5 rounded-lg bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-400 dark:text-gray-400 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-gray-600 transition text-xs"
+                >
+                  ▼
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-4 pb-4 flex gap-2">
           <button
-            onClick={toggleTheme}
-            className="bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-white font-semibold px-4 py-3 rounded-xl transition flex items-center gap-2"
+            onClick={saveNavOrder}
+            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition text-sm"
           >
-            {dark ? '☀️ Mode jour' : '🌙 Mode nuit'}
+            {navSaved ? '✅ Sauvegardé !' : '💾 Sauvegarder l\'ordre'}
           </button>
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50"
+            onClick={resetNavOrder}
+            className="px-4 py-3 rounded-xl border border-slate-200 dark:border-gray-700 text-slate-400 dark:text-gray-500 hover:bg-slate-50 dark:hover:bg-gray-800 transition text-sm"
           >
-            {saving ? 'Sauvegarde...' : saved ? '✅ Sauvegardé !' : '💾 Sauvegarder'}
+            Réinitialiser
           </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
-        <div className="grid grid-cols-12 bg-slate-50 dark:bg-gray-800 px-6 py-3 text-xs text-slate-500 dark:text-gray-400 font-semibold uppercase tracking-wider">
-          <span className="col-span-3">Analyse</span>
-          <span className="col-span-4">Description</span>
-          <span className="col-span-2">Unité</span>
-          <span className="col-span-1">Min</span>
-          <span className="col-span-2">Max</span>
-        </div>
+      {/* ===== SECTION ANALYSES — RÉTRACTABLE ===== */}
+      <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl shadow-sm dark:shadow-none overflow-hidden">
 
-        {parametres.map((p, i) => (
-          <div
-            key={p.type}
-            className={`grid grid-cols-12 items-center px-6 py-4 border-b border-slate-100 dark:border-gray-800/50 last:border-0 gap-2 ${
-              i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-slate-50/50 dark:bg-gray-900/50'
-            }`}
-          >
-            <div className="col-span-3">
-              <p className="font-semibold text-slate-900 dark:text-white text-sm">{p.type}</p>
-            </div>
-            <div className="col-span-4">
-              <p className="text-slate-400 dark:text-gray-500 text-xs leading-relaxed">{p.description}</p>
-            </div>
-            <div className="col-span-2">
-              <input
-                type="text"
-                value={p.unite}
-                onChange={e => handleChange(p.type, 'unite', e.target.value)}
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
-              />
-            </div>
-            <div className="col-span-1">
-              <input
-                type="number"
-                value={p.normal_min}
-                onChange={e => handleChange(p.type, 'normal_min', e.target.value)}
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
-              />
-            </div>
-            <div className="col-span-2">
-              <input
-                type="number"
-                value={p.normal_max}
-                onChange={e => handleChange(p.type, 'normal_max', e.target.value)}
-                className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
-              />
-            </div>
+        {/* Header cliquable */}
+        <button
+          onClick={() => setAnalysesOuvertes(!analysesOuvertes)}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-gray-800/50 transition"
+        >
+          <div className="text-left">
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">🧪 Valeurs normales des analyses</h3>
+            <p className="text-slate-400 dark:text-gray-500 text-xs mt-0.5">
+              {analysesOuvertes ? 'Cliquer pour masquer' : `${parametres.length} analyses configurées — cliquer pour modifier`}
+            </p>
           </div>
-        ))}
+          <span className={`text-slate-400 dark:text-gray-500 text-lg transition-transform duration-200 ${analysesOuvertes ? 'rotate-180' : ''}`}>
+            ▼
+          </span>
+        </button>
+
+        {/* Contenu rétractable */}
+        {analysesOuvertes && (
+          <>
+            {/* En-têtes — masqués sur mobile */}
+            <div className="hidden md:grid grid-cols-12 bg-slate-50 dark:bg-gray-800 px-6 py-3 text-xs text-slate-500 dark:text-gray-400 font-semibold uppercase tracking-wider border-t border-slate-100 dark:border-gray-800">
+              <span className="col-span-3">Analyse</span>
+              <span className="col-span-4">Description</span>
+              <span className="col-span-2">Unité</span>
+              <span className="col-span-1">Min</span>
+              <span className="col-span-2">Max</span>
+            </div>
+
+            {parametres.map((p, i) => (
+              <div
+                key={p.type}
+                className={`border-t border-slate-100 dark:border-gray-800/50 ${
+                  i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-slate-50/50 dark:bg-gray-900/50'
+                }`}
+              >
+                {/* Vue desktop */}
+                <div className="hidden md:grid grid-cols-12 items-center px-6 py-4 gap-2">
+                  <div className="col-span-3">
+                    <p className="font-semibold text-slate-900 dark:text-white text-sm">{p.type}</p>
+                  </div>
+                  <div className="col-span-4">
+                    <p className="text-slate-400 dark:text-gray-500 text-xs leading-relaxed">{p.description}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <input
+                      type="text"
+                      value={p.unite}
+                      onChange={e => handleChange(p.type, 'unite', e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <input
+                      type="number"
+                      value={p.normal_min}
+                      onChange={e => handleChange(p.type, 'normal_min', e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <input
+                      type="number"
+                      value={p.normal_max}
+                      onChange={e => handleChange(p.type, 'normal_max', e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Vue mobile — cards empilées */}
+                <div className="md:hidden px-4 py-3">
+                  <p className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{p.type}</p>
+                  <p className="text-slate-400 dark:text-gray-500 text-xs mb-3 leading-relaxed">{p.description}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-xs text-slate-400 dark:text-gray-500 mb-1">Unité</p>
+                      <input
+                        type="text"
+                        value={p.unite}
+                        onChange={e => handleChange(p.type, 'unite', e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 dark:text-gray-500 mb-1">Min</p>
+                      <input
+                        type="number"
+                        value={p.normal_min}
+                        onChange={e => handleChange(p.type, 'normal_min', e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 dark:text-gray-500 mb-1">Max</p>
+                      <input
+                        type="number"
+                        value={p.normal_max}
+                        onChange={e => handleChange(p.type, 'normal_max', e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Bouton sauvegarder analyses */}
+            <div className="px-5 py-4 border-t border-slate-100 dark:border-gray-800">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 text-sm"
+              >
+                {saving ? 'Sauvegarde...' : saved ? '✅ Sauvegardé !' : '💾 Sauvegarder les valeurs'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <p className="text-slate-400 dark:text-gray-600 text-xs mt-4 text-center">

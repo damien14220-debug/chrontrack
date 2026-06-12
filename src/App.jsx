@@ -14,12 +14,30 @@ import Journal from './pages/Journal'
 import Assistant from './pages/Assistant'
 import Science from './pages/Science'
 
+const NAV_DEFAULT = [
+  { id: 'dashboard', label: 'Accueil', icon: '🏠' },
+  { id: 'analyses', label: 'Analyses', icon: '📊' },
+  { id: 'statistiques', label: 'Stats', icon: '📈' },
+  { id: 'symptomes', label: 'Symptômes', icon: '🤒' },
+  { id: 'repas', label: 'Repas', icon: '🍽️' },
+  { id: 'medicaments', label: 'Médocs', icon: '💊' },
+  { id: 'sport', label: 'Sport', icon: '🏃' },
+  { id: 'journal', label: 'Journal', icon: '📓' },
+  { id: 'rapport', label: 'Rapport', icon: '📄' },
+  { id: 'assistant', label: 'IA', icon: '🤖' },
+  { id: 'science', label: 'Science', icon: '🔬' },
+]
+
 function App() {
   const [page, setPage] = useState('dashboard')
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dark, setDark] = useState(true)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [navItems, setNavItems] = useState(() => {
+    const saved = localStorage.getItem('navOrder')
+    return saved ? JSON.parse(saved) : NAV_DEFAULT
+  })
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
@@ -40,6 +58,16 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Écouter les changements d'ordre depuis Paramètres
+  useEffect(() => {
+    const handleNavChange = () => {
+      const saved = localStorage.getItem('navOrder')
+      if (saved) setNavItems(JSON.parse(saved))
+    }
+    window.addEventListener('navOrderChanged', handleNavChange)
+    return () => window.removeEventListener('navOrderChanged', handleNavChange)
+  }, [])
+
   const toggleTheme = () => {
     const newDark = !dark
     setDark(newDark)
@@ -50,20 +78,6 @@ function App() {
       document.documentElement.classList.remove('dark')
     }
   }
-
-  const navItems = [
-    { id: 'dashboard', label: 'Accueil', icon: '🏠' },
-    { id: 'analyses', label: 'Analyses', icon: '📊' },
-    { id: 'statistiques', label: 'Stats', icon: '📈' },
-    { id: 'symptomes', label: 'Symptômes', icon: '🤒' },
-    { id: 'repas', label: 'Repas', icon: '🍽️' },
-    { id: 'medicaments', label: 'Médocs', icon: '💊' },
-    { id: 'sport', label: 'Sport', icon: '🏃' },
-    { id: 'journal', label: 'Journal', icon: '📓' },
-    { id: 'rapport', label: 'Rapport', icon: '📄' },
-    { id: 'assistant', label: 'IA', icon: '🤖' },
-    { id: 'science', label: 'Science', icon: '🔬' },
-  ]
 
   const renderPage = () => {
     switch(page) {
@@ -76,10 +90,10 @@ function App() {
       case 'sport': return <Sport />
       case 'journal': return <Journal />
       case 'rapport': return <Rapport />
-      case 'parametres': return <Parametres toggleTheme={toggleTheme} dark={dark} />
-      default: return <Dashboard />
       case 'assistant': return <Assistant />
       case 'science': return <Science />
+      case 'parametres': return <Parametres toggleTheme={toggleTheme} dark={dark} />
+      default: return <Dashboard />
     }
   }
 
@@ -102,14 +116,12 @@ function App() {
       {/* ======================== SIDEBAR DESKTOP ======================== */}
       <aside className="hidden md:flex w-64 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800 min-h-screen p-6 flex-col">
 
-        {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
           <img src="/apple-touch-icon.png" className="w-9 h-9 rounded-xl" alt="logo" />
           <h1 className="text-xl font-bold text-emerald-600 dark:text-green-400">CrohnTrack</h1>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 flex flex-col gap-1">
+        <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
           {navItems.map(item => (
             <button
               key={item.id}
@@ -126,10 +138,8 @@ function App() {
           ))}
         </nav>
 
-        {/* Bas sidebar */}
         <div className="border-t border-slate-200 dark:border-gray-800 pt-4 mt-4">
           <p className="text-slate-400 dark:text-gray-600 text-xs mb-3 truncate px-1">{session.user.email}</p>
-
           <button
             onClick={() => setPage('parametres')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium mb-1 ${
@@ -141,7 +151,6 @@ function App() {
             <span className="text-lg">⚙️</span>
             Paramètres
           </button>
-
           <button
             onClick={toggleTheme}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium mb-1 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
@@ -149,7 +158,6 @@ function App() {
             <span className="text-lg">{dark ? '☀️' : '🌙'}</span>
             {dark ? 'Mode jour' : 'Mode nuit'}
           </button>
-
           <button
             onClick={async () => { await supabase.auth.signOut(); setSession(null); setPage('dashboard') }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium text-slate-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500"
@@ -160,12 +168,10 @@ function App() {
         </div>
 
       </aside>
-      {/* ======================== FIN SIDEBAR ======================== */}
 
       {/* ======================== CONTENU PRINCIPAL ======================== */}
       <div className="flex-1 flex flex-col min-h-screen">
 
-        {/* Header mobile */}
         <header className="md:hidden bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src="/apple-touch-icon.png" className="w-8 h-8 rounded-xl" alt="logo" />
@@ -179,7 +185,6 @@ function App() {
           </button>
         </header>
 
-        {/* Menu mobile déroulant */}
         {showMobileMenu && (
           <div className="md:hidden bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 px-4 py-3 flex flex-col gap-2">
             <p className="text-slate-400 dark:text-gray-600 text-xs truncate">{session.user.email}</p>
@@ -204,12 +209,10 @@ function App() {
           </div>
         )}
 
-        {/* Page active */}
         <main className="flex-1 overflow-auto pb-24 md:pb-0">
           {renderPage()}
         </main>
 
-        {/* ======================== BARRE NAV MOBILE ======================== */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 z-50">
           <div
             className="flex overflow-x-auto scrollbar-hide px-2 py-2 gap-1"
@@ -231,10 +234,8 @@ function App() {
             ))}
           </div>
         </nav>
-        {/* ======================== FIN NAV MOBILE ======================== */}
 
       </div>
-      {/* ======================== FIN CONTENU ======================== */}
 
     </div>
   )
