@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
+// ============================================================
+// POUR AJOUTER UNE NOUVELLE FICHE : copie ce bloc et remplis
+// ============================================================
+// {
+//   id: 21,                          ← incrément +1
+//   titre: "Titre de la fiche",
+//   categorie: "Biologie",           ← ou nouvelle catégorie
+//   emoji: "🧬",
+//   pertinence: ["CRP", "Ferritine"], ← types d'analyses liés (vide [] si aucun)
+//   resume: "Résumé en une phrase.",
+//   contenu: `Contenu détaillé...`,
+//   sources: ["Auteur et al. Titre. Journal. Année"]
+// },
+// ============================================================
+
 const FICHES = [
   {
     id: 1,
@@ -426,7 +441,7 @@ Une alimentation riche en antioxydants (dans les limites du régime adapté au C
 
 const CATEGORIES = ['Toutes', ...new Set(FICHES.map(f => f.categorie))]
 
-function Science({ analysesRecentes }) {
+function Science() {
   const [categorieActive, setCategorieActive] = useState('Toutes')
   const [ficheOuverte, setFicheOuverte] = useState(null)
   const [analyses, setAnalyses] = useState([])
@@ -443,9 +458,7 @@ function Science({ analysesRecentes }) {
     .filter(a => a.normal_min !== null && a.normal_max !== null && (a.valeur < a.normal_min || a.valeur > a.normal_max))
     .map(a => a.type)
 
-  const fichesPertinentes = (fiche) => {
-    return fiche.pertinence.some(p => typesAnormaux.includes(p))
-  }
+  const fichesPertinentes = (fiche) => fiche.pertinence.some(p => typesAnormaux.includes(p))
 
   const fichesFiltrees = FICHES.filter(f => {
     const matchCategorie = categorieActive === 'Toutes' || f.categorie === categorieActive
@@ -456,35 +469,35 @@ function Science({ analysesRecentes }) {
     return matchCategorie && matchRecherche
   })
 
-  const fichesPrioritaires = fichesFiltrees.filter(f => fichesPertinentes(f))
+  const fichesPrio = fichesFiltrees.filter(f => fichesPertinentes(f))
   const fichesNormales = fichesFiltrees.filter(f => !fichesPertinentes(f))
-  const fichesOrdonnees = [...fichesPrioritaires, ...fichesNormales]
+  const fichesOrdonnees = [...fichesPrio, ...fichesNormales]
 
   return (
     <div className="px-3 py-4 md:px-6 md:py-8">
 
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">🔬 Science & Crohn</h2>
         <p className="text-slate-500 dark:text-gray-400 text-sm">
-          20 fiches scientifiques sourcées sur les mécanismes du Crohn — personnalisées selon tes analyses.
+          {FICHES.length} fiches scientifiques sourcées — personnalisées selon tes analyses.
         </p>
       </div>
 
-      {/* Fiches pertinentes selon analyses */}
-      {fichesPrioritaires.length > 0 && categorieActive === 'Toutes' && recherche === '' && (
-        <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4">
-          <p className="text-amber-700 dark:text-amber-400 text-sm font-semibold mb-1">
-            ⚡ Fiches liées à tes analyses récentes
+      {/* Bandeau fiches pertinentes */}
+      {fichesPrio.length > 0 && categorieActive === 'Toutes' && recherche === '' && (
+        <div className="mb-5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4">
+          <p className="text-amber-700 dark:text-amber-400 text-sm font-semibold">
+            ⚡ {fichesPrio.length} fiche{fichesPrio.length > 1 ? 's' : ''} liée{fichesPrio.length > 1 ? 's' : ''} à tes analyses anormales
           </p>
-          <p className="text-amber-600 dark:text-amber-500 text-xs">
-            Ces fiches correspondent à des valeurs anormales dans tes bilans.
+          <p className="text-amber-600 dark:text-amber-500 text-xs mt-0.5">
+            Elles apparaissent en premier ci-dessous.
           </p>
         </div>
       )}
 
       {/* Recherche */}
-      <div className="mb-4">
+      <div className="mb-3">
         <input
           type="text"
           placeholder="🔍 Rechercher une fiche..."
@@ -494,8 +507,8 @@ function Science({ analysesRecentes }) {
         />
       </div>
 
-      {/* Filtres catégories */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-6">
+      {/* Filtres catégories — scroll horizontal */}
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-5" style={{ WebkitOverflowScrolling: 'touch' }}>
         {CATEGORIES.map(cat => (
           <button
             key={cat}
@@ -511,24 +524,26 @@ function Science({ analysesRecentes }) {
         ))}
       </div>
 
-      {/* Grille de fiches */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+      {/* Liste fiches — 1 colonne sur mobile, 2 sur desktop */}
+      <div className="flex flex-col md:grid md:grid-cols-2 gap-3 mb-6">
         {fichesOrdonnees.map(fiche => {
           const estPertinente = fichesPertinentes(fiche)
           return (
             <button
               key={fiche.id}
               onClick={() => setFicheOuverte(fiche)}
-              className={`text-left p-4 rounded-2xl border transition ${
+              className={`text-left p-4 rounded-2xl border transition active:scale-[0.98] ${
                 estPertinente
-                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/30'
-                  : 'bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-gray-800'
+                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/50'
+                  : 'bg-white dark:bg-gray-900 border-slate-200 dark:border-gray-800'
               }`}
             >
               <div className="flex items-start gap-3">
-                <span className="text-2xl shrink-0">{fiche.emoji}</span>
+                {/* Emoji grand et lisible */}
+                <span className="text-3xl shrink-0 leading-none mt-0.5">{fiche.emoji}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  {/* Badge catégorie + pertinent */}
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                       estPertinente
                         ? 'bg-amber-200 dark:bg-amber-800/50 text-amber-700 dark:text-amber-400'
@@ -536,10 +551,22 @@ function Science({ analysesRecentes }) {
                     }`}>
                       {fiche.categorie}
                     </span>
-                    {estPertinente && <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">⚡ Pertinent</span>}
+                    {estPertinente && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">⚡ Pertinent</span>
+                    )}
                   </div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white text-sm mb-1 leading-snug">{fiche.titre}</h3>
-                  <p className="text-slate-500 dark:text-gray-400 text-xs leading-relaxed">{fiche.resume}</p>
+                  {/* Titre plus grand */}
+                  <h3 className="font-semibold text-slate-900 dark:text-white text-base leading-snug mb-1">
+                    {fiche.titre}
+                  </h3>
+                  {/* Résumé lisible */}
+                  <p className="text-slate-500 dark:text-gray-400 text-sm leading-relaxed">
+                    {fiche.resume}
+                  </p>
+                  {/* Chevron */}
+                  <p className="text-emerald-500 dark:text-green-400 text-xs mt-2 font-medium">
+                    Lire la fiche →
+                  </p>
                 </div>
               </div>
             </button>
@@ -547,37 +574,62 @@ function Science({ analysesRecentes }) {
         })}
       </div>
 
-      {/* Modal fiche */}
+      {fichesOrdonnees.length === 0 && (
+        <div className="text-center py-12 text-slate-400 dark:text-gray-600">
+          <p className="text-4xl mb-3">🔍</p>
+          <p className="text-sm">Aucune fiche trouvée pour cette recherche.</p>
+        </div>
+      )}
+
+      {/* ===== MODAL FICHE ===== */}
       {ficheOuverte && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="bg-white dark:bg-gray-900 w-full md:max-w-2xl md:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+          onClick={() => setFicheOuverte(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 w-full md:max-w-2xl md:rounded-2xl rounded-t-3xl max-h-[92vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Poignée mobile */}
+            <div className="flex justify-center pt-3 pb-1 md:hidden">
+              <div className="w-10 h-1 bg-slate-200 dark:bg-gray-700 rounded-full"></div>
+            </div>
 
             {/* Header modal */}
-            <div className="flex items-start gap-3 p-5 border-b border-slate-100 dark:border-gray-800">
-              <span className="text-3xl shrink-0">{ficheOuverte.emoji}</span>
+            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 dark:border-gray-800">
+              <span className="text-4xl shrink-0">{ficheOuverte.emoji}</span>
               <div className="flex-1 min-w-0">
-                <span className="text-xs font-medium text-slate-400 dark:text-gray-500">{ficheOuverte.categorie}</span>
-                <h3 className="font-bold text-slate-900 dark:text-white text-lg leading-snug">{ficheOuverte.titre}</h3>
+                <span className="text-xs font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wide">
+                  {ficheOuverte.categorie}
+                </span>
+                <h3 className="font-bold text-slate-900 dark:text-white text-lg leading-snug mt-0.5">
+                  {ficheOuverte.titre}
+                </h3>
               </div>
               <button
                 onClick={() => setFicheOuverte(null)}
-                className="text-slate-400 dark:text-gray-600 hover:text-slate-600 dark:hover:text-gray-400 text-xl shrink-0 p-1"
+                className="text-slate-400 dark:text-gray-600 hover:text-slate-600 dark:hover:text-gray-400 shrink-0 p-1 text-2xl leading-none"
               >
                 ✕
               </button>
             </div>
 
-            {/* Contenu modal */}
-            <div className="flex-1 overflow-y-auto p-5">
-              <p className="text-slate-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap mb-6">
+            {/* Contenu scrollable */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <p className="text-slate-700 dark:text-gray-300 text-base leading-relaxed whitespace-pre-wrap mb-6">
                 {ficheOuverte.contenu}
               </p>
 
               {/* Sources */}
-              <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4">
-                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mb-2">📚 Sources scientifiques</p>
+              <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 mb-4">
+                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                  📚 Sources scientifiques
+                </p>
                 {ficheOuverte.sources.map((source, i) => (
-                  <p key={i} className="text-xs text-slate-400 dark:text-gray-500 mb-1">• {source}</p>
+                  <p key={i} className="text-sm text-slate-400 dark:text-gray-500 mb-1.5 leading-relaxed">
+                    • {source}
+                  </p>
                 ))}
               </div>
             </div>
