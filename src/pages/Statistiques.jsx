@@ -31,7 +31,7 @@ function Statistiques() {
     return analyses
       .filter(a => a.type === typeSelectionne)
       .map(a => ({
-        date: new Date(a.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+        date: new Date(a.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
         valeur: a.valeur,
         normal_min: a.normal_min,
         normal_max: a.normal_max,
@@ -59,14 +59,17 @@ function Statistiques() {
   const params = typeSelectionne ? getParams(typeSelectionne) : null
   const stats = typeSelectionne ? getStats(typeSelectionne) : null
 
-  if (loading) return <div className="px-6 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
+  if (loading) return (
+    <div className="px-4 py-8 text-slate-500 dark:text-gray-500">Chargement...</div>
+  )
 
   return (
-    <div className="px-6 py-8">
+    <div className="px-3 py-4 md:px-6 md:py-8">
 
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">📈 Statistiques</h2>
-        <p className="text-slate-500 dark:text-gray-400">Visualise l'évolution de tes analyses dans le temps.</p>
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">📈 Statistiques</h2>
+        <p className="text-slate-500 dark:text-gray-400 text-sm">Visualise l'évolution de tes analyses dans le temps.</p>
       </div>
 
       {analyses.length === 0 ? (
@@ -78,8 +81,8 @@ function Statistiques() {
       ) : (
         <>
           {/* Sélecteur */}
-          <div className="mb-8">
-            <p className="text-slate-500 dark:text-gray-400 text-sm mb-3">Sélectionne une analyse à visualiser :</p>
+          <div className="mb-6">
+            <p className="text-slate-500 dark:text-gray-400 text-sm mb-3">Sélectionne une analyse :</p>
             <div className="flex flex-wrap gap-2">
               {types.map(type => {
                 const p = getParams(type)
@@ -89,12 +92,12 @@ function Statistiques() {
                   <button
                     key={type}
                     onClick={() => setTypeSelectionne(type)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${
+                    className={`px-3 py-1.5 rounded-xl text-xs md:text-sm font-medium transition border ${
                       typeSelectionne === type
                         ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/50'
                         : anormal
-                        ? 'bg-red-50 dark:bg-red-900/20 text-red-500 border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/30'
-                        : 'bg-white dark:bg-gray-900 text-slate-600 dark:text-gray-400 border-slate-200 dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-gray-800'
+                        ? 'bg-red-50 dark:bg-red-900/20 text-red-500 border-red-200 dark:border-red-800/50'
+                        : 'bg-white dark:bg-gray-900 text-slate-600 dark:text-gray-400 border-slate-200 dark:border-gray-800'
                     }`}
                   >
                     {anormal ? '⚠️ ' : ''}{type}
@@ -104,79 +107,117 @@ function Statistiques() {
             </div>
           </div>
 
-          {/* Graphique */}
+          {/* Graphique + Stats */}
           {typeSelectionne && donnees.length > 0 && (
-            <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 mb-6 shadow-sm dark:shadow-none">
+            <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-3 md:p-6 mb-6 shadow-sm dark:shadow-none">
 
-              {/* Stats rapides */}
+              {/* Titre */}
+              <div className="mb-4">
+                <h3 className="text-base md:text-lg font-bold text-slate-900 dark:text-white">
+                  {typeSelectionne}
+                </h3>
+                {params && (
+                  <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+                    Valeurs normales : {params.normal_min} — {params.normal_max} {params.unite}
+                  </p>
+                )}
+              </div>
+
+              {/* Stats rapides — 2 colonnes sur mobile, 4 sur desktop */}
               {stats && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-5">
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-3 text-center">
                     <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Dernière valeur</p>
-                    <p className={`text-2xl font-bold ${
+                    <p className={`text-xl md:text-2xl font-bold ${
                       params && isAnormal(stats.derniere, params.normal_min, params.normal_max)
                         ? 'text-red-500' : 'text-emerald-500'
                     }`}>{stats.derniere}</p>
+                    {params && (
+                      <p className="text-xs text-slate-400 dark:text-gray-600 mt-0.5">{params.unite}</p>
+                    )}
                   </div>
-                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-3 text-center">
                     <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Moyenne</p>
-                    <p className="text-2xl font-bold text-sky-500">{stats.moy}</p>
+                    <p className="text-xl md:text-2xl font-bold text-sky-500">{stats.moy}</p>
+                    {params && (
+                      <p className="text-xs text-slate-400 dark:text-gray-600 mt-0.5">{params.unite}</p>
+                    )}
                   </div>
-                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-3 text-center">
                     <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Min / Max</p>
-                    <p className="text-lg font-bold text-slate-700 dark:text-gray-300">{stats.min} / {stats.max}</p>
+                    <p className="text-base md:text-lg font-bold text-slate-700 dark:text-gray-300">{stats.min} / {stats.max}</p>
+                    {params && (
+                      <p className="text-xs text-slate-400 dark:text-gray-600 mt-0.5">{params.unite}</p>
+                    )}
                   </div>
-                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+                  <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-3 text-center">
                     <p className="text-slate-400 dark:text-gray-500 text-xs mb-1">Mesures</p>
-                    <p className="text-2xl font-bold text-purple-500">{stats.total}</p>
+                    <p className="text-xl md:text-2xl font-bold text-purple-500">{stats.total}</p>
+                    <p className="text-xs text-slate-400 dark:text-gray-600 mt-0.5">bilans</p>
                   </div>
                 </div>
               )}
 
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-                Évolution — {typeSelectionne}
-                {params && (
-                  <span className="text-sm text-slate-400 dark:text-gray-500 font-normal ml-2">
-                    (normal : {params.normal_min} — {params.normal_max} {params.unite})
-                  </span>
-                )}
-              </h3>
-
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={donnees} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              {/* Graphique — plus haut sur mobile */}
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart
+                  data={donnees}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 10 }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 10 }}
+                    width={40}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'white',
                       border: '1px solid #e2e8f0',
                       borderRadius: '12px',
-                      color: '#0f172a'
+                      color: '#0f172a',
+                      fontSize: '13px'
                     }}
                   />
                   {params && (
                     <>
-                      <ReferenceLine y={params.normal_max} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Max', fill: '#ef4444', fontSize: 11 }} />
-                      <ReferenceLine y={params.normal_min} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: 'Min', fill: '#f59e0b', fontSize: 11 }} />
+                      <ReferenceLine
+                        y={params.normal_max}
+                        stroke="#ef4444"
+                        strokeDasharray="4 4"
+                        label={{ value: 'Max', fill: '#ef4444', fontSize: 10, position: 'right' }}
+                      />
+                      <ReferenceLine
+                        y={params.normal_min}
+                        stroke="#f59e0b"
+                        strokeDasharray="4 4"
+                        label={{ value: 'Min', fill: '#f59e0b', fontSize: 10, position: 'right' }}
+                      />
                     </>
                   )}
                   <Line
                     type="monotone"
                     dataKey="valeur"
                     stroke="#10b981"
-                    strokeWidth={2}
-                    dot={{ fill: '#10b981', r: 5 }}
-                    activeDot={{ r: 7 }}
+                    strokeWidth={2.5}
+                    dot={{ fill: '#10b981', r: 4, strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
+
             </div>
           )}
 
           {typeSelectionne && donnees.length < 2 && (
             <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 text-center text-slate-500 dark:text-gray-500 shadow-sm">
-              <p>📊 Enregistre au moins 2 bilans pour voir l'évolution sur le graphique.</p>
+              <p className="text-sm">📊 Enregistre au moins 2 bilans pour voir l'évolution.</p>
             </div>
           )}
         </>
