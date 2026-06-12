@@ -164,7 +164,13 @@ ${(medicaments || []).length > 0
               {msg.role === 'assistant' && (
                 <p className="text-xs text-emerald-500 dark:text-green-400 font-medium mb-1">🤖 Assistant</p>
               )}
-              <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+              <p className="whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: msg.content
+  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  .replace(/\*(.*?)\*/g, '<em>$1</em>')
+  .replace(/^### (.*$)/gm, '<strong class="text-emerald-500">$1</strong>')
+  .replace(/^## (.*$)/gm, '<strong class="text-emerald-500">$1</strong>')
+  .replace(/^- (.*$)/gm, '• $1')
+}} />
             </div>
           </div>
         ))}
