@@ -12,6 +12,7 @@ import Parametres from './pages/Parametres'
 import Sport from './pages/Sport'
 import Journal from './pages/Journal'
 import Assistant from './pages/Assistant'
+import Science from './pages/Science'
 
 function App() {
   const [page, setPage] = useState('dashboard')
@@ -61,6 +62,7 @@ function App() {
     { id: 'journal', label: 'Journal', icon: '📓' },
     { id: 'rapport', label: 'Rapport', icon: '📄' },
     { id: 'assistant', label: 'IA', icon: '🤖' },
+    { id: 'science', label: 'Science', icon: '🔬' },
   ]
 
   const renderPage = () => {
@@ -77,6 +79,7 @@ function App() {
       case 'parametres': return <Parametres toggleTheme={toggleTheme} dark={dark} />
       default: return <Dashboard />
       case 'assistant': return <Assistant />
+      case 'science': return <Science />
     }
   }
 
