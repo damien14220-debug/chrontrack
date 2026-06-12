@@ -154,49 +154,71 @@ function Sport() {
     }
   }
 
-  const importStravaActivities = async (token) => {
-    setStravaLoading(true)
-    try {
-      const response = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=50', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      const activities = await response.json()
-      if (!Array.isArray(activities)) {
-        console.error('Réponse Strava inattendue:', activities)
-        setStravaLoading(false)
-        return
-      }
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: existantes } = await supabase
-        .from('sport')
-        .select('note')
-        .eq('user_id', user.id)
-      const notesExistantes = new Set(existantes?.map(e => e.note) || [])
+ const importStravaActivities = async (token) => {
+  setStravaLoading(true)
+  try {
+    const response = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=50', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const activities = await response.json()
 
-      const lignes = []
-      for (const a of activities) {
-        const noteStrava = `Strava — ${a.id}`
-        if (notesExistantes.has(noteStrava)) continue
-        lignes.push({
-          date: a.start_date_local.split('T')[0],
-          sport: getSportFromStrava(a.sport_type || a.type),
-          duree: Math.round(a.moving_time / 60),
-          distance: a.distance > 0 ? Math.round(a.distance / 100) / 10 : null,
-          energie_avant: 3,
-          energie_apres: 3,
-          sensation_ventre: 5,
-          symptomes_ventre: '',
-          note: noteStrava,
-          user_id: user.id
-        })
+    console.log('Activités Strava reçues:', activities?.length, activities?.[0])
+
+    if (!Array.isArray(activities)) {
+      console.error('Réponse Strava inattendue:', activities)
+      setStravaLoading(false)
+      return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: existantes } = await supabase
+      .from('sport')
+      .select('note')
+      .eq('user_id', user.id)
+
+    const notesExistantes = new Set(existantes?.map(e => e.note) || [])
+
+    const lignes = []
+    for (const a of activities) {
+      const noteStrava = `Strava — ${a.id}`
+      if (notesExistantes.has(noteStrava)) continue
+
+      const sportType = a.sport_type || a.type || 'Autre'
+      const dureeMinutes = a.moving_time ? Math.round(a.moving_time / 60) : null
+      const distanceKm = a.distance && a.distance > 0 ? Math.round(a.distance / 100) / 10 : null
+
+      lignes.push({
+        date: a.start_date_local.split('T')[0],
+        sport: getSportFromStrava(sportType),
+        duree: dureeMinutes,
+        distance: distanceKm,
+        energie_avant: 3,
+        energie_apres: 3,
+        sensation_ventre: 5,
+        symptomes_ventre: '',
+        note: noteStrava,
+        user_id: user.id
+      })
+    }
+
+    console.log('Nouvelles lignes à insérer:', lignes.length, lignes[0])
+
+    if (lignes.length > 0) {
+      // Insérer une par une pour identifier l'erreur précise
+      for (const ligne of lignes) {
+        const { error } = await supabase.from('sport').insert([ligne])
+        if (error) {
+          console.error('Erreur insertion:', error, 'Ligne:', ligne)
+        }
       }
-      if (lignes.length > 0) {
-        await supabase.from('sport').insert(lignes)
-      }
-      fetchSeances()
-    } catch(e) { console.error('Erreur import Strava:', e) }
-    setStravaLoading(false)
+    }
+
+    fetchSeances()
+  } catch(e) {
+    console.error('Erreur import Strava:', e)
   }
+  setStravaLoading(false)
+}
 
   const deconnecterStrava = () => {
     localStorage.removeItem('strava_access_token')
