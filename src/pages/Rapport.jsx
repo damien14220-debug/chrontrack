@@ -6,6 +6,8 @@ function Rapport() {
   const [analyses, setAnalyses] = useState([])
   const [symptomes, setSymptomes] = useState([])
   const [medicaments, setMedicaments] = useState([])
+  const [sport, setSport] = useState([])
+  const [evenements, setEvenements] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [dateDebut, setDateDebut] = useState('')
@@ -27,14 +29,20 @@ function Rapport() {
       { data: analysesData },
       { data: symptomesData },
       { data: medicamentsData },
+      { data: sportData },
+      { data: evenementsData },
     ] = await Promise.all([
       supabase.from('analyses').select('*').order('date', { ascending: true }),
       supabase.from('symptomes').select('*').order('date', { ascending: false }),
       supabase.from('medicaments').select('*'),
+      supabase.from('sport').select('*').order('date', { ascending: false }),
+      supabase.from('evenements_medicaux').select('*').order('date_debut', { ascending: false }),
     ])
     if (analysesData) setAnalyses(analysesData)
     if (symptomesData) setSymptomes(symptomesData)
     if (medicamentsData) setMedicaments(medicamentsData)
+    if (sportData) setSport(sportData)
+    if (evenementsData) setEvenements(evenementsData)
     setLoading(false)
   }
 
@@ -48,10 +56,32 @@ function Rapport() {
     return data.filter(d => d.date >= dateDebut && d.date <= dateFin)
   }
 
+  // Événements chevauchant la période du rapport
+  const filtrerEvenements = (data) => {
+    if (!dateDebut || !dateFin) return data
+    return data.filter(e =>
+      e.date_debut <= dateFin && (!e.date_fin || e.date_fin >= dateDebut)
+    )
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     const d = new Date(dateStr)
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  }
+
+  const formatDateCourt = (dateStr) => {
+    if (!dateStr) return '—'
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+  }
+
+  const formatDuree = (min) => {
+    if (!min) return '0 min'
+    const h = Math.floor(min / 60)
+    const m = Math.round(min % 60)
+    if (h === 0) return `${m} min`
+    return m === 0 ? `${h} h` : `${h} h ${m} min`
   }
 
   const generatePDF = () => {
@@ -60,6 +90,14 @@ function Rapport() {
     setTimeout(() => {
       const analysesFiltrees = filtrer(analyses)
       const symptomesFiltres = filtrer(symptomes)
+      const sportFiltres = filtrer(sport)
+      const evenementsFiltres = filtrerEvenements(evenements)
+        .sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut))
+
+      const medsEnCours = medicaments.filter(m => !m.date_fin)
+      const medsHistorique = medicaments
+        .filter(m => m.date_fin && m.date_fin >= dateDebut)
+        .sort((a, b) => new Date(b.date_fin) - new Date(a.date_fin))
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const pageW = 210
@@ -72,6 +110,8 @@ function Rapport() {
       const BLEU = [14, 165, 233]
       const ROUGE = [239, 68, 68]
       const ORANGE = [217, 119, 6]
+      const VIOLET = [124, 58, 237]
+      const INDIGO = [99, 102, 241]
       const GRIS = [107, 114, 128]
       const GRIS_CLAIR = [245, 247, 250]
       const BLANC = [255, 255, 255]
@@ -104,6 +144,14 @@ function Rapport() {
         } else {
           pdf.text(str, x, ry)
         }
+      }
+
+      // En-tête de section réutilisable (barre colorée + titre)
+      const sectionTitle = (titre, couleur) => {
+        checkPage(15)
+        rect(margin, y, 3, 7, couleur, 1)
+        txt(titre, margin + 5, y + 5.5, 11, NOIR, 'bold')
+        y += 10
       }
 
       // ===== EN-TÊTE =====
@@ -147,7 +195,7 @@ function Rapport() {
         { label: 'Bilans', valeur: groupes.length, couleur: VERT, bg: [209, 250, 229] },
         { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? ROUGE : VERT, bg: anormauxTotal.length > 0 ? [254, 226, 226] : [209, 250, 229] },
         { label: 'Symptomes', valeur: symptomesFiltres.length, couleur: ORANGE, bg: [254, 243, 199] },
-        { label: 'Traitements', valeur: medicaments.length, couleur: BLEU, bg: [224, 242, 254] },
+        { label: 'Traitements', valeur: medsEnCours.length, couleur: BLEU, bg: [224, 242, 254] },
       ]
 
       const cW = (contentW - 9) / 4
@@ -159,12 +207,49 @@ function Rapport() {
       })
       y += 26
 
-      // ===== TRAITEMENTS =====
-      if (medicaments.length > 0) {
-        checkPage(15)
-        rect(margin, y, 3, 7, BLEU, 1)
-        txt('Traitements en cours', margin + 5, y + 5.5, 11, NOIR, 'bold')
-        y += 10
+      // ===== ÉVÉNEMENTS MÉDICAUX =====
+      if (evenementsFiltres.length > 0) {
+        sectionTitle('Evenements medicaux', INDIGO)
+
+        evenementsFiltres.forEach(ev => {
+          const desc = ev.resultats || ev.description || ''
+          pdf.setFontSize(7.5)
+          pdf.setFont('helvetica', 'normal')
+          const descLines = desc ? pdf.splitTextToSize(String(desc), contentW - 6) : []
+          const cardH = 11 + (descLines.length ? descLines.length * 3.4 + 2 : 0)
+          checkPage(cardH + 3)
+
+          rect(margin, y, contentW, cardH, GRIS_CLAIR, 2)
+
+          // Titre + type
+          txt(ev.titre || 'Evenement', margin + 3, y + 5.5, 9, NOIR, 'bold', contentW - 50)
+          const periode = ev.date_fin && ev.date_fin !== ev.date_debut
+            ? `${formatDateCourt(ev.date_debut)} - ${formatDateCourt(ev.date_fin)}`
+            : formatDateCourt(ev.date_debut)
+          pdf.setFontSize(7)
+          pdf.setFont('helvetica', 'normal')
+          pdf.setTextColor(...GRIS)
+          const perW = pdf.getTextWidth(periode)
+          pdf.text(periode, margin + contentW - perW - 3, y + 5.5)
+
+          if (ev.type) txt(ev.type, margin + 3, y + 9.5, 7, INDIGO, 'bold')
+
+          // Résultats / description
+          if (descLines.length) {
+            pdf.setFontSize(7.5)
+            pdf.setFont('helvetica', 'normal')
+            pdf.setTextColor(...GRIS)
+            pdf.text(descLines, margin + 3, y + 13.5)
+          }
+
+          y += cardH + 3
+        })
+        y += 3
+      }
+
+      // ===== TRAITEMENTS EN COURS =====
+      if (medsEnCours.length > 0) {
+        sectionTitle('Traitements en cours', BLEU)
 
         rect(margin, y, contentW, 7, BLEU, 2)
         const cMed = [55, 30, 60, 35]
@@ -173,11 +258,11 @@ function Rapport() {
         hMed.forEach((h, i) => { txt(h, xc, y + 5, 7.5, BLANC, 'bold'); xc += cMed[i] })
         y += 7
 
-        medicaments.forEach((med, idx) => {
+        medsEnCours.forEach((med, idx) => {
           checkPage(7)
           rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
           xc = margin + 2
-          const row = [med.nom, med.dosage, med.frequence || '—', formatDate(med.date_debut) || '—']
+          const row = [med.nom, med.dosage, med.frequence || '—', med.date_debut ? formatDate(med.date_debut) : '—']
           row.forEach((v, i) => {
             txt(v, xc, y + 4.5, 7.5, i === 0 ? [3, 105, 161] : NOIR, i === 0 ? 'bold' : 'normal', cMed[i] - 2)
             xc += cMed[i]
@@ -187,13 +272,35 @@ function Rapport() {
         y += 6
       }
 
+      // ===== HISTORIQUE DES TRAITEMENTS =====
+      if (medsHistorique.length > 0) {
+        sectionTitle('Historique des traitements (periode)', GRIS)
+
+        rect(margin, y, contentW, 7, GRIS, 2)
+        const cHist = [56, 32, 46, 46]
+        const hHist = ['Medicament', 'Dosage', 'Debut', 'Fin']
+        let xc = margin + 2
+        hHist.forEach((h, i) => { txt(h, xc, y + 5, 7.5, BLANC, 'bold'); xc += cHist[i] })
+        y += 7
+
+        medsHistorique.forEach((med, idx) => {
+          checkPage(7)
+          rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
+          xc = margin + 2
+          const row = [med.nom, med.dosage, formatDate(med.date_debut), formatDate(med.date_fin)]
+          row.forEach((v, i) => {
+            txt(v, xc, y + 4.5, 7.5, i === 0 ? NOIR : GRIS, i === 0 ? 'bold' : 'normal', cHist[i] - 2)
+            xc += cHist[i]
+          })
+          y += 6.5
+        })
+        y += 6
+      }
+
       // ===== RÉSUMÉ VALEURS =====
       const typesUniques = [...new Set(analysesFiltrees.map(a => a.type))]
       if (typesUniques.length > 0) {
-        checkPage(15)
-        rect(margin, y, 3, 7, VERT, 1)
-        txt('Resume des dernieres valeurs', margin + 5, y + 5.5, 11, NOIR, 'bold')
-        y += 10
+        sectionTitle('Resume des dernieres valeurs', VERT)
 
         const bW = (contentW - 4) / 2
         let col = 0
@@ -232,10 +339,7 @@ function Rapport() {
 
       // ===== BILANS DÉTAILLÉS =====
       if (groupes.length > 0) {
-        checkPage(15)
-        rect(margin, y, 3, 7, VERT, 1)
-        txt('Bilans sanguins detailles', margin + 5, y + 5.5, 11, NOIR, 'bold')
-        y += 10
+        sectionTitle('Bilans sanguins detailles', VERT)
 
         groupes.forEach(([date, valeurs]) => {
           checkPage(22)
@@ -278,10 +382,7 @@ function Rapport() {
 
       // ===== SYMPTÔMES =====
       if (symptomesFiltres.length > 0) {
-        checkPage(15)
-        rect(margin, y, 3, 7, ORANGE, 1)
-        txt('Symptomes', margin + 5, y + 5.5, 11, NOIR, 'bold')
-        y += 10
+        sectionTitle('Symptomes', ORANGE)
 
         rect(margin, y, contentW, 6.5, ORANGE, 2)
         const cSym = [42, 58, 22, 58]
@@ -302,6 +403,67 @@ function Rapport() {
           })
           y += 6.5
         })
+        y += 6
+      }
+
+      // ===== ACTIVITÉ PHYSIQUE =====
+      if (sportFiltres.length > 0) {
+        sectionTitle('Activite physique', VIOLET)
+
+        const dureeTotale = sportFiltres.reduce((sum, s) => sum + (Number(s.duree) || 0), 0)
+        const distanceTotale = sportFiltres.reduce((sum, s) => sum + (Number(s.distance) || 0), 0)
+        const ressentis = sportFiltres.map(s => Number(s.sensation_ventre)).filter(v => !Number.isNaN(v))
+        const ressentiMoyen = ressentis.length ? (ressentis.reduce((a, b) => a + b, 0) / ressentis.length) : null
+
+        // Mini-cartes de synthèse
+        const statsSport = [
+          { label: 'Seances', valeur: String(sportFiltres.length) },
+          { label: 'Duree totale', valeur: formatDuree(dureeTotale) },
+          { label: 'Distance', valeur: distanceTotale > 0 ? `${distanceTotale.toFixed(1)} km` : '—' },
+          { label: 'Ressenti moyen', valeur: ressentiMoyen !== null ? `${ressentiMoyen.toFixed(1)}/5` : '—' },
+        ]
+        const sW = (contentW - 9) / 4
+        statsSport.forEach((c, i) => {
+          const x = margin + i * (sW + 3)
+          rect(x, y, sW, 18, [237, 233, 254], 3)
+          txt(c.valeur, x + 3, y + 9, 11, VIOLET, 'bold', sW - 5)
+          txt(c.label, x + 3, y + 15, 7, GRIS)
+        })
+        y += 24
+
+        // Répartition par type de sport
+        const parType = {}
+        sportFiltres.forEach(s => {
+          const t = s.sport || 'Autre'
+          if (!parType[t]) parType[t] = { nb: 0, duree: 0, distance: 0 }
+          parType[t].nb++
+          parType[t].duree += Number(s.duree) || 0
+          parType[t].distance += Number(s.distance) || 0
+        })
+        const typesSport = Object.entries(parType).sort((a, b) => b[1].nb - a[1].nb)
+
+        if (typesSport.length > 0) {
+          checkPage(14)
+          rect(margin, y, contentW, 6.5, VIOLET, 2)
+          const cSp = [66, 28, 46, 40]
+          const hSp = ['Type', 'Seances', 'Duree', 'Distance']
+          let xc = margin + 2
+          hSp.forEach((h, i) => { txt(h, xc, y + 4.8, 7.5, BLANC, 'bold'); xc += cSp[i] })
+          y += 6.5
+
+          typesSport.forEach(([type, d], idx) => {
+            checkPage(6.5)
+            rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : [245, 243, 255])
+            xc = margin + 2
+            const row = [type, String(d.nb), formatDuree(d.duree), d.distance > 0 ? `${d.distance.toFixed(1)} km` : '—']
+            row.forEach((v, i) => {
+              txt(v, xc, y + 4.6, 7.5, i === 0 ? NOIR : GRIS, i === 0 ? 'bold' : 'normal', cSp[i] - 2)
+              xc += cSp[i]
+            })
+            y += 6.5
+          })
+          y += 6
+        }
       }
 
       // ===== PIED DE PAGE =====
@@ -325,6 +487,9 @@ function Rapport() {
 
   const analysesFiltrees = filtrer(analyses)
   const symptomesFiltres = filtrer(symptomes)
+  const sportFiltres = filtrer(sport)
+  const evenementsFiltres = filtrerEvenements(evenements)
+  const medsEnCours = medicaments.filter(m => !m.date_fin)
   const groupes = (() => {
     const g = {}
     analysesFiltrees.forEach(a => { if (!g[a.date]) g[a.date] = []; g[a.date].push(a) })
@@ -373,7 +538,7 @@ function Rapport() {
             { label: 'Bilans', valeur: groupes.length, couleur: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
             { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? 'text-red-500' : 'text-emerald-500', bg: anormauxTotal.length > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20' },
             { label: 'Symptômes', valeur: symptomesFiltres.length, couleur: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-            { label: 'Traitements', valeur: medicaments.length, couleur: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
+            { label: 'Traitements', valeur: medsEnCours.length, couleur: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
           ].map(item => (
             <div key={item.label} className={`${item.bg} rounded-2xl p-5 text-center`}>
               <p className={`text-3xl font-bold ${item.couleur}`}>{item.valeur}</p>
@@ -381,9 +546,22 @@ function Rapport() {
             </div>
           ))}
         </div>
+
+        {/* Ligne secondaire : événements & sport sur la période */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-5 text-center">
+            <p className="text-3xl font-bold text-indigo-500">{evenementsFiltres.length}</p>
+            <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">Événements médicaux</p>
+          </div>
+          <div className="bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-5 text-center">
+            <p className="text-3xl font-bold text-violet-500">{sportFiltres.length}</p>
+            <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">Séances de sport</p>
+          </div>
+        </div>
+
         <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-5 text-center">
           <p className="text-slate-500 dark:text-gray-400 text-sm mb-4">
-            Le PDF inclut : entête avec tes informations, résumé des valeurs, bilans détaillés, symptômes et traitements.
+            Le PDF inclut : entête avec tes informations, résumé des valeurs, événements médicaux, traitements (en cours + historique), bilans détaillés, symptômes et activité physique.
           </p>
           <button onClick={generatePDF} disabled={generating}
             className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50">
