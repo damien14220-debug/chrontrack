@@ -1,14 +1,13 @@
-export const config = { 
-  runtime: 'edge',
+export const config = {
   maxDuration: 60
 }
 
-export default async function handler(req) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { messages, contexte, memoire } = await req.json()
+  const { messages, contexte, memoire } = req.body
 
   const systemPrompt = `Tu es un assistant médical spécialisé dans la maladie de Crohn, personnel et bienveillant.
 Tu analyses les données de santé de l'utilisateur et fournis des conseils personnalisés, scientifiquement fondés.
@@ -29,23 +28,26 @@ RÈGLES IMPORTANTES :
 - Réponds en français, de façon claire et structurée
 - Ne coupe JAMAIS ta réponse en plein milieu — termine toujours ta pensée complètement`
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages
+      })
     })
-  })
 
-  const data = await response.json()
-  return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json' }
-  })
+    const data = await response.json()
+    return res.status(200).json(data)
+  } catch (error) {
+    console.error('Erreur API Anthropic:', error)
+    return res.status(500).json({ error: 'Erreur serveur' })
+  }
 }
