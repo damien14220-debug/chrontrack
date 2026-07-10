@@ -25,67 +25,53 @@ function Assistant() {
   }, [messages])
 
   const fetchContexte = async () => {
-    setLoadingContexte(true)
-    const aujourd_hui = new Date()
-    const il_y_a_90_jours = new Date(aujourd_hui - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  setLoadingContexte(true)
+  const aujourd_hui = new Date()
+  const il_y_a_60_jours = new Date(aujourd_hui - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-    const [
-      { data: analyses },
-      { data: symptomes },
-      { data: repas },
-      { data: medicaments },
-      { data: sport }
-    ] = await Promise.all([
-      supabase.from('analyses').select('*').order('date', { ascending: false }).limit(30),
-      supabase.from('symptomes').select('*').gte('date', il_y_a_90_jours).order('date', { ascending: false }),
-      supabase.from('repas').select('*').gte('date', il_y_a_90_jours).order('date', { ascending: false }).limit(50),
-      supabase.from('medicaments').select('*'),
-      supabase.from('sport').select('*').gte('date', il_y_a_90_jours).order('date', { ascending: false }).limit(20)
-    ])
+  const [
+    { data: analyses },
+    { data: symptomes },
+    { data: repas },
+    { data: medicaments }
+  ] = await Promise.all([
+    supabase.from('analyses').select('*').order('date', { ascending: false }).limit(15),
+    supabase.from('symptomes').select('*').gte('date', il_y_a_60_jours).order('date', { ascending: false }).limit(15),
+    supabase.from('repas').select('*').gte('date', il_y_a_60_jours).order('date', { ascending: false }).limit(20),
+    supabase.from('medicaments').select('*')
+  ])
 
-    const analysesAnormales = (analyses || []).filter(a =>
-      a.normal_min !== null && a.normal_max !== null &&
-      (a.valeur < a.normal_min || a.valeur > a.normal_max)
-    )
+  const analysesAnormales = (analyses || []).filter(a =>
+    a.normal_min !== null && a.normal_max !== null &&
+    (a.valeur < a.normal_min || a.valeur > a.normal_max)
+  )
 
-    // Grouper les repas par réaction pour détecter les intolérances
-    const repasAvecReaction = (repas || []).filter(r => r.reaction && r.reaction !== 'aucune')
+  const repasAvecReaction = (repas || []).filter(r => r.reaction && r.reaction !== 'aucune')
 
-    const contexteTexte = `
-ANALYSES RÉCENTES (${(analyses || []).length} bilans) :
-${(analyses || []).slice(0, 15).map(a => `- ${a.type}: ${a.valeur} ${a.unite || ''} (le ${new Date(a.date).toLocaleDateString('fr-FR')})`).join('\n')}
+  const contexteTexte = `
+ANALYSES RÉCENTES :
+${(analyses || []).slice(0, 10).map(a => `- ${a.type}: ${a.valeur} ${a.unite || ''} (${new Date(a.date).toLocaleDateString('fr-FR')})`).join('\n')}
 
 ANALYSES ANORMALES :
 ${analysesAnormales.length > 0
   ? analysesAnormales.map(a => `- ⚠️ ${a.type}: ${a.valeur} (normal: ${a.normal_min}-${a.normal_max} ${a.unite || ''})`).join('\n')
-  : '- Aucune anomalie détectée récemment'}
+  : '- Aucune anomalie'}
 
-SYMPTÔMES DES 90 DERNIERS JOURS :
-${(symptomes || []).length > 0
-  ? symptomes.slice(0, 20).map(s => `- ${s.type} (intensité ${s.intensite}/5) le ${new Date(s.date).toLocaleDateString('fr-FR')}${s.note ? ` — ${s.note}` : ''}`).join('\n')
-  : '- Aucun symptôme enregistré'}
+SYMPTÔMES RÉCENTS :
+${(symptomes || []).slice(0, 10).map(s => `- ${s.type} (${s.intensite}/5) le ${new Date(s.date).toLocaleDateString('fr-FR')}`).join('\n') || '- Aucun'}
 
-REPAS DES 90 DERNIERS JOURS (${(repas || []).length} repas) :
-${(repas || []).slice(0, 30).map(r => `- ${r.moment}: ${r.aliments} — réaction: ${r.reaction || 'aucune'} (le ${new Date(r.date).toLocaleDateString('fr-FR')})`).join('\n')}
+REPAS RÉCENTS :
+${(repas || []).slice(0, 15).map(r => `- ${r.moment}: ${r.aliments} — réaction: ${r.reaction || 'aucune'} (${new Date(r.date).toLocaleDateString('fr-FR')})`).join('\n') || '- Aucun'}
 
-REPAS AVEC RÉACTIONS (à surveiller) :
-${repasAvecReaction.length > 0
-  ? repasAvecReaction.slice(0, 10).map(r => `- ⚠️ ${r.aliments} → ${r.reaction} (le ${new Date(r.date).toLocaleDateString('fr-FR')})`).join('\n')
-  : '- Aucune réaction alimentaire notable'}
+REPAS AVEC RÉACTIONS :
+${repasAvecReaction.slice(0, 5).map(r => `- ⚠️ ${r.aliments} → ${r.reaction}`).join('\n') || '- Aucune'}
 
-ACTIVITÉS SPORTIVES RÉCENTES :
-${(sport || []).length > 0
-  ? sport.slice(0, 10).map(s => `- ${s.sport} ${s.duree ? `${s.duree}min` : ''} ${s.distance ? `${s.distance}km` : ''} — ventre: ${s.sensation_ventre}/5 (le ${new Date(s.date).toLocaleDateString('fr-FR')})`).join('\n')
-  : '- Aucune activité enregistrée'}
-
-TRAITEMENTS EN COURS :
-${(medicaments || []).length > 0
-  ? medicaments.map(m => `- ${m.nom} ${m.dosage || ''} (${m.frequence || ''})`).join('\n')
-  : '- Aucun traitement enregistré'}
+TRAITEMENTS :
+${(medicaments || []).map(m => `- ${m.nom} ${m.dosage || ''} (${m.frequence || ''})`).join('\n') || '- Aucun'}
 `
-    setContexte(contexteTexte)
-    setLoadingContexte(false)
-  }
+  setContexte(contexteTexte)
+  setLoadingContexte(false)
+}
 
   const sauvegarderMemoire = async (messagesSession) => {
     // Extraire les points clés de la conversation pour la mémoire
