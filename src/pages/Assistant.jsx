@@ -175,7 +175,7 @@ ${(medicaments || []).map(m => `- ${m.nom} ${m.dosage || ''} (${m.frequence || '
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">🤖 Assistant IA</h2>
           <p className="text-slate-500 dark:text-gray-400 text-sm">
-            Ton assistant personnalisé — accès à 90 jours de données.
+            Ton assistant personnalisé — accès à 60 jours de données.
           </p>
         </div>
         <div className="flex gap-2">
