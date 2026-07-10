@@ -114,19 +114,19 @@ function App() {
     <div className="min-h-screen bg-slate-50 dark:bg-gray-950 text-slate-900 dark:text-white flex">
 
       {/* ======================== SIDEBAR DESKTOP ======================== */}
-      <aside className="hidden md:flex w-64 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800 min-h-screen p-6 flex-col">
+      <aside className="hidden md:flex w-64 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800 h-screen sticky top-0 p-6 flex-col overflow-hidden">
 
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-8 shrink-0">
           <img src="/apple-touch-icon.png" className="w-9 h-9 rounded-xl" alt="logo" />
           <h1 className="text-xl font-bold text-emerald-600 dark:text-green-400">CrohnTrack</h1>
         </div>
 
-        <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
+        <nav className="flex-1 min-h-0 flex flex-col gap-1 overflow-y-auto scrollbar-hide">
           {navItems.map(item => (
             <button
               key={item.id}
               onClick={() => setPage(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium ${
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition font-medium shrink-0 ${
                 page === item.id
                   ? 'bg-emerald-50 dark:bg-green-500/20 text-emerald-600 dark:text-green-400 border border-emerald-200 dark:border-green-500/30'
                   : 'text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'
@@ -138,7 +138,7 @@ function App() {
           ))}
         </nav>
 
-        <div className="border-t border-slate-200 dark:border-gray-800 pt-4 mt-4">
+        <div className="border-t border-slate-200 dark:border-gray-800 pt-4 mt-4 shrink-0">
           <p className="text-slate-400 dark:text-gray-600 text-xs mb-3 truncate px-1">{session.user.email}</p>
           <button
             onClick={() => setPage('parametres')}
