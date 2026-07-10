@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
 const PUBMED_CACHE_KEY = 'pubmed_cache'
-const CACHE_DUREE = 7 * 24 * 60 * 60 * 1000
+const CACHE_DUREE = 7 * 24 * 60 * 60 * 1000 // 7 jours
 
+// ============================================================
+// FICHES STATIQUES DE BASE
+// ============================================================
 const FICHES_STATIQUES = [
   {
     id: 's1',
@@ -36,7 +39,7 @@ Dans l'intestin des patients Crohn, les macrophages et lymphocytes T activés pr
 
 Le TNF-α est la cible principale des biothérapies anti-TNF comme l'infliximab (Remicade) et l'adalimumab (Humira). Ces médicaments neutralisent le TNF-α circulant et permettent une rémission chez 50 à 70% des patients en poussée.
 
-Une CRP élevée dans tes analyses reflète directement l'activité inflammatoire médiée notamment par le TNF-α et l'IL-6.`,
+Une CRP élevée dans tes analyses reflète directement l'activité inflammatoire médiée notamment par le TNF-α et l'IL-6. C'est pourquoi la CRP est le marqueur de suivi principal des poussées.`,
     sources: ["Neurath MF. Cytokines in inflammatory bowel disease. Nat Rev Immunol. 2014", "Targan SR et al. Anti-TNF therapy in Crohn's disease. NEJM. 1997"]
   },
   {
@@ -94,7 +97,7 @@ Le VGM est clé : bas → fer ; élevé → B12/folates ; normal → inflammatoi
     resume: "Le meilleur marqueur non invasif de l'inflammation intestinale.",
     contenu: `La calprotectine est une protéine contenue dans les neutrophiles. Lors d'une inflammation intestinale, les neutrophiles migrent vers la muqueuse et libèrent de la calprotectine dans les selles.
 
-Valeurs : moins de 50 µg/g = normal | 50-200 = zone grise | plus de 200 = inflammation active | plus de 500 = poussée sévère
+Valeurs : < 50 µg/g normal | 50-200 zone grise | > 200 inflammation active | > 500 poussée sévère
 
 Elle distingue le Crohn du syndrome de l'intestin irritable et prédit les rechutes.`,
     sources: ["Tibble JA et al. Surrogate markers of intestinal inflammation. Am J Gastroenterol. 2002"]
@@ -108,7 +111,7 @@ Elle distingue le Crohn du syndrome de l'intestin irritable et prédit les rechu
     resume: "Bien plus qu'une vitamine pour les os : un modulateur immunitaire essentiel.",
     contenu: `La vitamine D est déficiente chez 60-70% des patients Crohn. Elle joue un rôle immunomodulateur majeur : renforce les jonctions serrées, stimule les défensines, favorise un profil Treg plutôt qu'inflammatoire Th17.
 
-Des niveaux bas sont associés à plus de poussées et une moins bonne réponse aux biothérapies. Objectif : supérieur à 30 ng/mL, idéalement 40-60 ng/mL.`,
+Des niveaux bas sont associés à plus de poussées et une moins bonne réponse aux biothérapies. Objectif : > 30 ng/mL, idéalement 40-60 ng/mL.`,
     sources: ["Cantorna MT et al. Vitamin D and IBD. Proc Nutr Soc. 2008"]
   },
   {
@@ -176,7 +179,7 @@ La méditation, cohérence cardiaque et TCC ont des effets bénéfiques document
     emoji: "🥤",
     pertinence: ["Albumine"],
     resume: "Quand la nutrition liquide exclusive devient un traitement.",
-    contenu: `La NEE (nutrition entérale exclusive) remplace totalement l'alimentation pendant 6-8 semaines. Efficacité comparable aux corticoïdes chez l'enfant (80%). Albumine inférieure à 30 g/L = signal de dénutrition sévère.`,
+    contenu: `La NEE (nutrition entérale exclusive) remplace totalement l'alimentation pendant 6-8 semaines. Efficacité comparable aux corticoïdes chez l'enfant (80%). Albumine < 30 g/L = signal de dénutrition sévère.`,
     sources: ["Lochs H et al. ESPEN guidelines on enteral nutrition. Clin Nutr. 2006"]
   },
   {
@@ -198,7 +201,7 @@ Nouvelles alternatives : védolizumab (anti-intégrine), ustekinumab (anti-IL12/
     emoji: "🧬",
     pertinence: [],
     resume: "Les bases génétiques de la susceptibilité au Crohn.",
-    contenu: `Plus de 200 loci génétiques identifiés. NOD2 : risque multiplié par 20-40 pour le Crohn iléal (30% des patients européens). Autres gènes : ATG16L1 (autophagie), IL23R (voie Th17), PTPN22.
+    contenu: `Plus de 200 loci génétiques identifiés. NOD2 : risque x20-40 pour le Crohn iléal (30% des patients européens). Autres gènes : ATG16L1 (autophagie), IL23R (voie Th17), PTPN22.
 
 Risque familial : 10-15% si parent du 1er degré atteint.`,
     sources: ["Hugot JP et al. Association of NOD2 mutations with Crohn's disease. Nature. 2001"]
@@ -232,7 +235,7 @@ Pour les sportifs intensifs : surveiller la ferritine (hémolyse mécanique augm
     emoji: "🔭",
     pertinence: ["Calprotectine fécale", "CRP"],
     resume: "Comment interpréter les résultats de la coloscopie.",
-    contenu: `Score SES-CD inférieur à 3 = rémission endoscopique. CRP supérieur à 5 mg/L et calprotectine supérieur à 250 µg/g = inflammation active probable. L'entéro-IRM évalue l'intestin grêle inaccessible à la coloscopie.`,
+    contenu: `Score SES-CD < 3 = rémission endoscopique. CRP > 5 mg/L et calprotectine > 250 µg/g = inflammation active probable. L'entéro-IRM évalue l'intestin grêle inaccessible à la coloscopie.`,
     sources: ["Daperno M et al. SES-CD score. Gastrointest Endosc. 2004"]
   },
   {
@@ -259,6 +262,8 @@ Alimentation riche en antioxydants bénéfique : huile d'olive, curcuma, fruits 
   }
 ]
 
+const CATEGORIES_BASE = ['Toutes', ...new Set(FICHES_STATIQUES.map(f => f.categorie))]
+
 function Science() {
   const [categorieActive, setCategorieActive] = useState('Toutes')
   const [ficheOuverte, setFicheOuverte] = useState(null)
@@ -266,6 +271,8 @@ function Science() {
   const [recherche, setRecherche] = useState('')
   const [fichesPerso, setFichesPerso] = useState([])
   const [onglet, setOnglet] = useState('fiches')
+
+  // PubMed
   const [requetePubmed, setRequetePubmed] = useState('')
   const [pubmedLoading, setPubmedLoading] = useState(false)
   const [pubmedResultats, setPubmedResultats] = useState([])
@@ -273,6 +280,8 @@ function Science() {
     const saved = localStorage.getItem(PUBMED_CACHE_KEY)
     return saved ? JSON.parse(saved) : {}
   })
+
+  // Formulaire nouvelle fiche
   const [showFormFiche, setShowFormFiche] = useState(false)
   const [formFiche, setFormFiche] = useState({
     titre: '', categorie: '', emoji: '🔬', resume: '', contenu: '', sources: ''
@@ -316,11 +325,16 @@ function Science() {
   const fichesNormales = fichesFiltrees.filter(f => !fichesPertinentes(f))
   const fichesOrdonnees = [...fichesPrio, ...fichesNormales]
 
+  // ===== NOUVELLE FICHE =====
+
   const handleSaveFiche = async () => {
     if (!formFiche.titre || !formFiche.categorie || !formFiche.contenu) return
     setSavingFiche(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const sources = formFiche.sources.split('\n').map(s => s.trim()).filter(s => s.length > 0)
+    const sources = formFiche.sources
+      .split('\n')
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
     await supabase.from('fiches_science').insert([{
       titre: formFiche.titre,
       categorie: formFiche.categorie,
@@ -338,7 +352,7 @@ function Science() {
   }
 
   const handleDeleteFiche = async (fiche) => {
-    if (!String(fiche.id).startsWith('p_')) return
+    if (!fiche.id.startsWith('p_')) return
     const realId = fiche.id.replace('p_', '')
     if (window.confirm('Supprimer cette fiche ?')) {
       await supabase.from('fiches_science').delete().eq('id', realId)
@@ -346,32 +360,44 @@ function Science() {
     }
   }
 
+  // ===== PUBMED =====
+
   const rechercherPubmed = async () => {
     if (!requetePubmed.trim()) return
+
     const cacheKey = requetePubmed.toLowerCase().trim()
     const cache = pubmedCache[cacheKey]
     if (cache && Date.now() - cache.timestamp < CACHE_DUREE) {
       setPubmedResultats(cache.resultats)
       return
     }
+
     setPubmedLoading(true)
     setPubmedResultats([])
+
     try {
+      // 1. Recherche PubMed — récupère les IDs des articles
       const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(requetePubmed + ' Crohn')}&retmax=5&sort=relevance&retmode=json`
       const searchRes = await fetch(searchUrl)
       const searchData = await searchRes.json()
       const ids = searchData.esearchresult?.idlist || []
+
       if (ids.length === 0) {
         setPubmedResultats([{ erreur: 'Aucun article trouvé sur PubMed pour cette recherche.' }])
         setPubmedLoading(false)
         return
       }
+
+      // 2. Récupère les détails des articles
       const fetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids.join(',')}&retmode=xml`
       const fetchRes = await fetch(fetchUrl)
       const xmlText = await fetchRes.text()
+
+      // Parse XML basique
       const parser = new DOMParser()
       const xmlDoc = parser.parseFromString(xmlText, 'text/xml')
       const articles = xmlDoc.querySelectorAll('PubmedArticle')
+
       const articlesData = []
       articles.forEach(article => {
         const titre = article.querySelector('ArticleTitle')?.textContent || ''
@@ -384,15 +410,19 @@ function Science() {
           const initials = a.querySelector('Initials')?.textContent || ''
           return `${last} ${initials}`.trim()
         }).join(', ')
+
         if (titre && abstract) {
           articlesData.push({ titre, abstract, annee, journal, pmid, auteurs })
         }
       })
+
       if (articlesData.length === 0) {
         setPubmedResultats([{ erreur: 'Articles trouvés mais abstracts non disponibles.' }])
         setPubmedLoading(false)
         return
       }
+
+      // 3. Envoie à l'IA pour résumé
       const prompt = `Tu es un expert en gastroentérologie et maladie de Crohn. Voici ${articlesData.length} articles scientifiques PubMed sur "${requetePubmed}" en lien avec le Crohn.
 
 Pour CHAQUE article, génère un résumé structuré de 20 à 30 lignes en français, clair et vulgarisé mais fidèle aux données scientifiques.
@@ -428,20 +458,37 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
       const iaData = await iaRes.json()
       let iaText = iaData.content?.[0]?.text || '[]'
       iaText = iaText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
       let resumesIA = []
-      try { resumesIA = JSON.parse(iaText) } catch(e) { resumesIA = [] }
+      try {
+        resumesIA = JSON.parse(iaText)
+      } catch(e) {
+        resumesIA = []
+      }
+
+      // Fusionne les données PubMed + résumés IA
       const resultats = articlesData.map(a => {
         const resumeIA = resumesIA.find(r => r.pmid === a.pmid)
-        return { ...a, resume_fr: resumeIA?.resume_fr || 'Résumé non disponible.' }
+        return {
+          ...a,
+          resume_fr: resumeIA?.resume_fr || 'Résumé non disponible.'
+        }
       })
-      const nouveauCache = { ...pubmedCache, [cacheKey]: { resultats, timestamp: Date.now() } }
+
+      // Sauvegarde dans le cache
+      const nouveauCache = {
+        ...pubmedCache,
+        [cacheKey]: { resultats, timestamp: Date.now() }
+      }
       setPubmedCache(nouveauCache)
       localStorage.setItem(PUBMED_CACHE_KEY, JSON.stringify(nouveauCache))
       setPubmedResultats(resultats)
+
     } catch(e) {
       console.error('Erreur PubMed:', e)
       setPubmedResultats([{ erreur: 'Erreur lors de la recherche. Réessaie.' }])
     }
+
     setPubmedLoading(false)
   }
 
@@ -451,7 +498,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">🔬 Science et Crohn</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">🔬 Science & Crohn</h2>
           <p className="text-slate-500 dark:text-gray-400 text-sm">
             {toutesLesFiches.length} fiches + recherche PubMed en temps réel.
           </p>
@@ -494,9 +541,11 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
       {/* ===== ONGLET FICHES ===== */}
       {onglet === 'fiches' && (
         <>
+          {/* Formulaire nouvelle fiche */}
           {showFormFiche && (
             <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-5 mb-6 shadow-sm">
               <h3 className="font-bold text-slate-900 dark:text-white text-base mb-4">✍️ Nouvelle fiche scientifique</h3>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="text-slate-500 dark:text-gray-400 text-xs mb-1 block">Titre *</label>
@@ -527,6 +576,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
                     className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500 outline-none" />
                 </div>
               </div>
+
               <div className="mb-3">
                 <label className="text-slate-500 dark:text-gray-400 text-xs mb-1 block">Contenu détaillé *</label>
                 <textarea value={formFiche.contenu} onChange={e => setFormFiche({ ...formFiche, contenu: e.target.value })}
@@ -534,13 +584,15 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
                   rows={8}
                   className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500 outline-none resize-none" />
               </div>
+
               <div className="mb-4">
                 <label className="text-slate-500 dark:text-gray-400 text-xs mb-1 block">Sources (une par ligne)</label>
                 <textarea value={formFiche.sources} onChange={e => setFormFiche({ ...formFiche, sources: e.target.value })}
-                  placeholder="Auteur et al. Titre. Journal. Année"
+                  placeholder={"Auteur et al. Titre de l'article. Journal. Année\nAuteur et al. Titre. Journal. Année"}
                   rows={3}
                   className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500 outline-none resize-none" />
               </div>
+
               <div className="flex gap-3">
                 <button onClick={handleSaveFiche} disabled={savingFiche}
                   className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl transition disabled:opacity-50 text-sm">
@@ -554,6 +606,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             </div>
           )}
 
+          {/* Bandeau fiches pertinentes */}
           {fichesPrio.length > 0 && categorieActive === 'Toutes' && recherche === '' && (
             <div className="mb-5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4">
               <p className="text-amber-700 dark:text-amber-400 text-sm font-semibold">
@@ -562,12 +615,14 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             </div>
           )}
 
+          {/* Recherche fiches */}
           <div className="mb-3">
             <input type="text" placeholder="🔍 Rechercher une fiche..." value={recherche}
               onChange={e => setRecherche(e.target.value)}
               className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:border-emerald-500 outline-none" />
           </div>
 
+          {/* Filtres catégories */}
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-5" style={{ WebkitOverflowScrolling: 'touch' }}>
             {toutesLesCategories.map(cat => (
               <button key={cat} onClick={() => setCategorieActive(cat)}
@@ -582,6 +637,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             ))}
           </div>
 
+          {/* Liste fiches */}
           <div className="flex flex-col md:grid md:grid-cols-2 gap-3 mb-6">
             {fichesOrdonnees.map(fiche => {
               const estPertinente = fichesPertinentes(fiche)
@@ -633,13 +689,14 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             <p className="text-slate-400 dark:text-gray-500 text-xs mb-4">
               Recherche des articles scientifiques réels et reçois un résumé détaillé en français. Résultats mis en cache 7 jours.
             </p>
+
             <div className="flex gap-2">
               <input
                 type="text"
                 value={requetePubmed}
                 onChange={e => setRequetePubmed(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && rechercherPubmed()}
-                placeholder="Ex: amoxicilline Crohn, kéfir inflammation..."
+                placeholder="Ex: amoxicilline Crohn, kéfir inflammation, vedolizumab..."
                 className="flex-1 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:border-emerald-500 outline-none"
               />
               <button
@@ -650,6 +707,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
                 {pubmedLoading ? '⏳' : '🔍 Chercher'}
               </button>
             </div>
+
             <div className="flex flex-wrap gap-2 mt-3">
               {['kéfir Crohn', 'amoxicilline microbiote', 'curcuma inflammation intestinale', 'probiotiques MICI', 'stress Crohn poussée'].map(s => (
                 <button key={s} onClick={() => setRequetePubmed(s)}
@@ -667,20 +725,18 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
-              <p className="text-slate-400 dark:text-gray-500 text-sm">Recherche PubMed + résumé IA en cours...</p>
+              <p className="text-slate-400 dark:text-gray-500 text-sm">Recherche sur PubMed + résumé IA en cours...</p>
             </div>
           )}
 
           {pubmedResultats.length > 0 && !pubmedLoading && (
             <div className="flex flex-col gap-4">
               {pubmedResultats.map((res, i) => {
-                if (res.erreur) {
-                  return (
-                    <div key={i} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-2xl p-4">
-                      <p className="text-red-500 text-sm">{res.erreur}</p>
-                    </div>
-                  )
-                }
+                if (res.erreur) return (
+                  <div key={i} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-2xl p-4">
+                    <p className="text-red-500 text-sm">{res.erreur}</p>
+                  </div>
+                )
                 return (
                   <div key={res.pmid} className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
                     <div className="flex items-start justify-between gap-3 mb-3">
@@ -690,7 +746,6 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
                           {res.auteurs && `${res.auteurs} · `}{res.journal && `${res.journal} · `}{res.annee}
                         </p>
                       </div>
-
                       <a
                         href={`https://pubmed.ncbi.nlm.nih.gov/${res.pmid}/`}
                         target="_blank"
@@ -701,10 +756,12 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
                         PubMed →
                       </a>
                     </div>
+
                     <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4">
                       <p className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wide mb-2">📝 Résumé en français</p>
                       <p className="text-slate-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{res.resume_fr}</p>
                     </div>
+
                     <div className="mt-3 flex justify-end">
                       <p className="text-xs text-slate-300 dark:text-gray-600">PMID: {res.pmid}</p>
                     </div>
@@ -718,17 +775,15 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
 
       {/* ===== MODAL FICHE ===== */}
       {ficheOuverte && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
-          onClick={() => setFicheOuverte(null)}
-        >
-          <div
-            className="bg-white dark:bg-gray-900 w-full md:max-w-2xl md:rounded-2xl rounded-t-3xl max-h-[92vh] flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+          onClick={() => setFicheOuverte(null)}>
+          <div className="bg-white dark:bg-gray-900 w-full md:max-w-2xl md:rounded-2xl rounded-t-3xl max-h-[92vh] flex flex-col"
+            onClick={e => e.stopPropagation()}>
+
             <div className="flex justify-center pt-3 pb-1 md:hidden">
               <div className="w-10 h-1 bg-slate-200 dark:bg-gray-700 rounded-full"></div>
             </div>
+
             <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 dark:border-gray-800">
               <span className="text-4xl shrink-0">{ficheOuverte.emoji}</span>
               <div className="flex-1 min-w-0">
@@ -737,25 +792,21 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
               </div>
               <div className="flex gap-2 shrink-0">
                 {String(ficheOuverte.id).startsWith('p_') && (
-                  <button
-                    onClick={() => { handleDeleteFiche(ficheOuverte); setFicheOuverte(null) }}
-                    className="text-red-400 hover:text-red-500 text-sm px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-                  >
+                  <button onClick={() => { handleDeleteFiche(ficheOuverte); setFicheOuverte(null) }}
+                    className="text-red-400 hover:text-red-500 text-sm px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition">
                     🗑️
                   </button>
                 )}
-                <button
-                  onClick={() => setFicheOuverte(null)}
-                  className="text-slate-400 dark:text-gray-600 hover:text-slate-600 shrink-0 p-1 text-2xl leading-none"
-                >
-                  ✕
-                </button>
+                <button onClick={() => setFicheOuverte(null)}
+                  className="text-slate-400 dark:text-gray-600 hover:text-slate-600 shrink-0 p-1 text-2xl leading-none">✕</button>
               </div>
             </div>
+
             <div className="flex-1 overflow-y-auto px-5 py-4">
               <p className="text-slate-700 dark:text-gray-300 text-base leading-relaxed whitespace-pre-wrap mb-6">
                 {ficheOuverte.contenu}
               </p>
+
               {ficheOuverte.sources && ficheOuverte.sources.length > 0 && (
                 <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 mb-4">
                   <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-3">📚 Sources scientifiques</p>
