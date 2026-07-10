@@ -16,10 +16,10 @@ function Rapport() {
 
   useEffect(() => {
     const today = new Date()
-    const il30jours = new Date(today)
-    il30jours.setDate(today.getDate() - 30)
+    const il90jours = new Date(today)
+    il90jours.setDate(today.getDate() - 90)
     setDateFin(today.toISOString().split('T')[0])
-    setDateDebut(il30jours.toISOString().split('T')[0])
+    setDateDebut(il90jours.toISOString().split('T')[0])
     fetchAll()
   }, [])
 
@@ -46,6 +46,8 @@ function Rapport() {
     setLoading(false)
   }
 
+  const todayStr = new Date().toISOString().split('T')[0]
+
   const isAnormal = (valeur, min, max) => {
     if (min === null || max === null) return false
     return valeur < min || valeur > max
@@ -56,13 +58,18 @@ function Rapport() {
     return data.filter(d => d.date >= dateDebut && d.date <= dateFin)
   }
 
-  // Événements chevauchant la période du rapport
+  // Un événement est inclus s'il chevauche la période sélectionnée
   const filtrerEvenements = (data) => {
     if (!dateDebut || !dateFin) return data
-    return data.filter(e =>
-      e.date_debut <= dateFin && (!e.date_fin || e.date_fin >= dateDebut)
-    )
+    return data.filter(e => {
+      const debut = e.date_debut
+      const fin = e.date_fin || e.date_debut
+      return debut <= dateFin && fin >= dateDebut
+    })
   }
+
+  // Traitements en cours = pas de date de fin OU fin à venir
+  const estEnCours = (m) => !m.date_fin || m.date_fin >= todayStr
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
@@ -73,7 +80,7 @@ function Rapport() {
   const formatDateCourt = (dateStr) => {
     if (!dateStr) return '—'
     const d = new Date(dateStr)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
   const formatDuree = (min) => {
@@ -81,7 +88,7 @@ function Rapport() {
     const h = Math.floor(min / 60)
     const m = Math.round(min % 60)
     if (h === 0) return `${m} min`
-    return m === 0 ? `${h} h` : `${h} h ${m} min`
+    return m === 0 ? `${h}h` : `${h}h${m < 10 ? '0' + m : m}`
   }
 
   const generatePDF = () => {
@@ -92,11 +99,9 @@ function Rapport() {
       const symptomesFiltres = filtrer(symptomes)
       const sportFiltres = filtrer(sport)
       const evenementsFiltres = filtrerEvenements(evenements)
-        .sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut))
-
-      const medsEnCours = medicaments.filter(m => !m.date_fin)
+      const medsEnCours = medicaments.filter(estEnCours)
       const medsHistorique = medicaments
-        .filter(m => m.date_fin && m.date_fin >= dateDebut)
+        .filter(m => !estEnCours(m) && (!dateDebut || m.date_fin >= dateDebut))
         .sort((a, b) => new Date(b.date_fin) - new Date(a.date_fin))
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -111,9 +116,12 @@ function Rapport() {
       const ROUGE = [239, 68, 68]
       const ORANGE = [217, 119, 6]
       const VIOLET = [124, 58, 237]
-      const INDIGO = [99, 102, 241]
+      const INDIGO = [79, 70, 229]
+      const INDIGO_FONCE = [67, 56, 202]
       const GRIS = [107, 114, 128]
-      const GRIS_CLAIR = [245, 247, 250]
+      const GRIS_TEXTE = [55, 65, 81]
+      const GRIS_CLAIR = [246, 248, 250]
+      const BORDURE = [226, 232, 240]
       const BLANC = [255, 255, 255]
       const NOIR = [17, 24, 39]
 
@@ -126,11 +134,8 @@ function Rapport() {
 
       const rect = (x, ry, w, h, color, r = 0) => {
         pdf.setFillColor(...color)
-        if (r > 0) {
-          pdf.roundedRect(x, ry, w, h, r, r, 'F')
-        } else {
-          pdf.rect(x, ry, w, h, 'F')
-        }
+        if (r > 0) pdf.roundedRect(x, ry, w, h, r, r, 'F')
+        else pdf.rect(x, ry, w, h, 'F')
       }
 
       const txt = (text, x, ry, size, color, style = 'normal', maxW = null) => {
@@ -138,50 +143,93 @@ function Rapport() {
         pdf.setTextColor(...color)
         pdf.setFont('helvetica', style)
         const str = String(text)
-        if (maxW) {
-          const lines = pdf.splitTextToSize(str, maxW)
-          pdf.text(lines, x, ry)
-        } else {
-          pdf.text(str, x, ry)
-        }
+        if (maxW) pdf.text(pdf.splitTextToSize(str, maxW), x, ry)
+        else pdf.text(str, x, ry)
       }
 
-      // En-tête de section réutilisable (barre colorée + titre)
-      const sectionTitle = (titre, couleur) => {
-        checkPage(15)
-        rect(margin, y, 3, 7, couleur, 1)
-        txt(titre, margin + 5, y + 5.5, 11, NOIR, 'bold')
-        y += 10
+      // Texte multi-ligne : renvoie la hauteur consommée (mm)
+      const wrapped = (text, x, ry, size, color, style, maxW, lineH = 4) => {
+        pdf.setFontSize(size)
+        pdf.setFont('helvetica', style)
+        pdf.setTextColor(...color)
+        const lines = pdf.splitTextToSize(String(text), maxW)
+        pdf.text(lines, x, ry)
+        return lines.length * lineH
+      }
+
+      // Tronque un texte sur une seule ligne avec …
+      const truncate = (text, maxW, size, style = 'normal') => {
+        pdf.setFontSize(size)
+        pdf.setFont('helvetica', style)
+        let s = String(text)
+        if (pdf.getTextWidth(s) <= maxW) return s
+        while (s.length > 1 && pdf.getTextWidth(s + '…') > maxW) s = s.slice(0, -1)
+        return s + '…'
+      }
+
+      // Titre de section homogène
+      const sectionTitle = (label, color) => {
+        checkPage(16)
+        rect(margin, y, 3, 7, color, 1)
+        txt(label, margin + 6, y + 5.5, 11.5, NOIR, 'bold')
+        y += 9
+        rect(margin, y, contentW, 0.3, BORDURE)
+        y += 4
+      }
+
+      // En-tête de tableau
+      const tableHeader = (labels, colW, color) => {
+        checkPage(9)
+        rect(margin, y, contentW, 7, color, 2)
+        let xc = margin + 2
+        labels.forEach((h, i) => { txt(h, xc, y + 4.8, 7.5, BLANC, 'bold'); xc += colW[i] })
+        y += 7
+      }
+
+      // Ligne de tableau à hauteur automatique (aucun chevauchement possible)
+      const tableRow = (cells, colW, bg, size = 7.5) => {
+        const lineH = 3.8
+        let maxLines = 1
+        const prepared = cells.map((c, i) => {
+          pdf.setFontSize(size)
+          pdf.setFont('helvetica', c.style || 'normal')
+          const val = (c.text === null || c.text === undefined || c.text === '') ? '—' : String(c.text)
+          const lines = pdf.splitTextToSize(val, colW[i] - 3)
+          if (lines.length > maxLines) maxLines = lines.length
+          return lines
+        })
+        const rowH = maxLines * lineH + 2.8
+        checkPage(rowH)
+        rect(margin, y, contentW, rowH, bg)
+        let xc = margin + 2
+        prepared.forEach((lines, i) => {
+          pdf.setFontSize(size)
+          pdf.setFont('helvetica', cells[i].style || 'normal')
+          pdf.setTextColor(...(cells[i].color || NOIR))
+          pdf.text(lines, xc, y + 3.7)
+          xc += colW[i]
+        })
+        y += rowH
       }
 
       // ===== EN-TÊTE =====
       rect(margin, y, contentW, 35, VERT, 4)
-
       txt('CrohnTrack', margin + 5, y + 13, 20, BLANC, 'bold')
       txt('Rapport de suivi medical - Maladie de Crohn', margin + 5, y + 21, 9, [200, 240, 220], 'italic')
       txt('crohntrack.fr', margin + 5, y + 28, 8, [160, 220, 190])
 
-      pdf.setFontSize(13)
-      pdf.setFont('helvetica', 'bold')
-      pdf.setTextColor(...BLANC)
+      pdf.setFontSize(13); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...BLANC)
       const nomStr = nomPatient || 'Patient'
-      const nomW = pdf.getTextWidth(nomStr)
-      pdf.text(nomStr, pageW - margin - nomW - 3, y + 13)
+      pdf.text(nomStr, pageW - margin - pdf.getTextWidth(nomStr) - 3, y + 13)
 
-      pdf.setFontSize(8)
-      pdf.setFont('helvetica', 'italic')
-      pdf.setTextColor(200, 240, 220)
+      pdf.setFontSize(8); pdf.setFont('helvetica', 'italic'); pdf.setTextColor(200, 240, 220)
       const periodeStr = `Du ${formatDate(dateDebut)} au ${formatDate(dateFin)}`
-      const periodeW = pdf.getTextWidth(periodeStr)
-      pdf.text(periodeStr, pageW - margin - periodeW - 3, y + 21)
+      pdf.text(periodeStr, pageW - margin - pdf.getTextWidth(periodeStr) - 3, y + 21)
 
-      pdf.setFontSize(7)
-      pdf.setFont('helvetica', 'normal')
-      pdf.setTextColor(160, 210, 185)
-      const dateGenStr = `Genere le ${formatDate(new Date().toISOString().split('T')[0])}`
-      const dateGenW = pdf.getTextWidth(dateGenStr)
-      pdf.text(dateGenStr, pageW - margin - dateGenW - 3, y + 28)
-      y += 41
+      pdf.setFontSize(7); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(160, 210, 185)
+      const dateGenStr = `Genere le ${formatDate(todayStr)}`
+      pdf.text(dateGenStr, pageW - margin - pdf.getTextWidth(dateGenStr) - 3, y + 28)
+      y += 42
 
       // ===== RÉSUMÉ CARTES =====
       const groupes = (() => {
@@ -196,103 +244,93 @@ function Rapport() {
         { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? ROUGE : VERT, bg: anormauxTotal.length > 0 ? [254, 226, 226] : [209, 250, 229] },
         { label: 'Symptomes', valeur: symptomesFiltres.length, couleur: ORANGE, bg: [254, 243, 199] },
         { label: 'Traitements', valeur: medsEnCours.length, couleur: BLEU, bg: [224, 242, 254] },
+        { label: 'Evenements', valeur: evenementsFiltres.length, couleur: INDIGO, bg: [224, 231, 255] },
       ]
-
-      const cW = (contentW - 9) / 4
+      const cW = (contentW - 12) / 5
       cartes.forEach((c, i) => {
         const x = margin + i * (cW + 3)
-        rect(x, y, cW, 20, c.bg, 3)
-        txt(String(c.valeur), x + 3, y + 12, 16, c.couleur, 'bold')
-        txt(c.label, x + 3, y + 18, 7.5, GRIS)
+        rect(x, y, cW, 21, c.bg, 3)
+        txt(String(c.valeur), x + 4, y + 12, 16, c.couleur, 'bold')
+        txt(c.label, x + 4, y + 18, 7, GRIS)
       })
-      y += 26
+      y += 28
 
       // ===== ÉVÉNEMENTS MÉDICAUX =====
       if (evenementsFiltres.length > 0) {
         sectionTitle('Evenements medicaux', INDIGO)
+        const evTries = [...evenementsFiltres].sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut))
 
-        evenementsFiltres.forEach(ev => {
-          const desc = ev.resultats || ev.description || ''
-          pdf.setFontSize(7.5)
-          pdf.setFont('helvetica', 'normal')
-          const descLines = desc ? pdf.splitTextToSize(String(desc), contentW - 6) : []
-          const cardH = 11 + (descLines.length ? descLines.length * 3.4 + 2 : 0)
-          checkPage(cardH + 3)
+        evTries.forEach(ev => {
+          checkPage(20)
+          const dateStr = ev.date_fin && ev.date_fin !== ev.date_debut
+            ? `${formatDate(ev.date_debut)}  ->  ${formatDate(ev.date_fin)}`
+            : formatDate(ev.date_debut)
 
-          rect(margin, y, contentW, cardH, GRIS_CLAIR, 2)
+          // Bandeau date
+          rect(margin, y, contentW, 8, [238, 242, 255], 2)
+          txt(dateStr, margin + 3, y + 5.4, 8.5, INDIGO_FONCE, 'bold')
+          y += 8
 
-          // Titre + type
-          txt(ev.titre || 'Evenement', margin + 3, y + 5.5, 9, NOIR, 'bold', contentW - 50)
-          const periode = ev.date_fin && ev.date_fin !== ev.date_debut
-            ? `${formatDateCourt(ev.date_debut)} - ${formatDateCourt(ev.date_fin)}`
-            : formatDateCourt(ev.date_debut)
-          pdf.setFontSize(7)
-          pdf.setFont('helvetica', 'normal')
-          pdf.setTextColor(...GRIS)
-          const perW = pdf.getTextWidth(periode)
-          pdf.text(periode, margin + contentW - perW - 3, y + 5.5)
-
-          if (ev.type) txt(ev.type, margin + 3, y + 9.5, 7, INDIGO, 'bold')
-
-          // Résultats / description
-          if (descLines.length) {
-            pdf.setFontSize(7.5)
-            pdf.setFont('helvetica', 'normal')
-            pdf.setTextColor(...GRIS)
-            pdf.text(descLines, margin + 3, y + 13.5)
+          // Titre
+          if (ev.titre) {
+            y += 2
+            y += wrapped(ev.titre, margin + 3, y + 2, 9.5, NOIR, 'bold', contentW - 6, 4.6)
           }
-
-          y += cardH + 3
+          // Type
+          if (ev.type) {
+            txt(`Type : ${ev.type}`, margin + 3, y + 3.5, 7.5, GRIS, 'italic')
+            y += 5
+          }
+          // Description
+          if (ev.description) {
+            y += 1
+            y += wrapped(ev.description, margin + 3, y + 2.5, 7.5, GRIS_TEXTE, 'normal', contentW - 6, 4)
+            y += 1
+          }
+          // Résultats
+          if (ev.resultats) {
+            checkPage(10)
+            y += 1
+            txt('Resultats', margin + 3, y + 3, 7.5, INDIGO, 'bold')
+            y += 4
+            y += wrapped(ev.resultats, margin + 3, y + 2, 7.5, GRIS_TEXTE, 'normal', contentW - 6, 4)
+          }
+          y += 6
         })
-        y += 3
+        y += 2
       }
 
       // ===== TRAITEMENTS EN COURS =====
       if (medsEnCours.length > 0) {
         sectionTitle('Traitements en cours', BLEU)
-
-        rect(margin, y, contentW, 7, BLEU, 2)
-        const cMed = [55, 30, 60, 35]
-        const hMed = ['Medicament', 'Dosage', 'Frequence', 'Depuis']
-        let xc = margin + 2
-        hMed.forEach((h, i) => { txt(h, xc, y + 5, 7.5, BLANC, 'bold'); xc += cMed[i] })
-        y += 7
-
+        const colW = [50, 28, 45, 47]
+        tableHeader(['Medicament', 'Dosage', 'Frequence', 'Periode'], colW, BLEU)
         medsEnCours.forEach((med, idx) => {
-          checkPage(7)
-          rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
-          xc = margin + 2
-          const row = [med.nom, med.dosage, med.frequence || '—', med.date_debut ? formatDate(med.date_debut) : '—']
-          row.forEach((v, i) => {
-            txt(v, xc, y + 4.5, 7.5, i === 0 ? [3, 105, 161] : NOIR, i === 0 ? 'bold' : 'normal', cMed[i] - 2)
-            xc += cMed[i]
-          })
-          y += 6.5
+          const periode = med.date_fin
+            ? `${formatDateCourt(med.date_debut)} -> ${formatDateCourt(med.date_fin)}`
+            : `Depuis ${formatDateCourt(med.date_debut)}`
+          tableRow([
+            { text: med.nom, color: [3, 105, 161], style: 'bold' },
+            { text: med.dosage },
+            { text: med.frequence },
+            { text: periode },
+          ], colW, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
         })
         y += 6
       }
 
       // ===== HISTORIQUE DES TRAITEMENTS =====
       if (medsHistorique.length > 0) {
-        sectionTitle('Historique des traitements (periode)', GRIS)
-
-        rect(margin, y, contentW, 7, GRIS, 2)
-        const cHist = [56, 32, 46, 46]
-        const hHist = ['Medicament', 'Dosage', 'Debut', 'Fin']
-        let xc = margin + 2
-        hHist.forEach((h, i) => { txt(h, xc, y + 5, 7.5, BLANC, 'bold'); xc += cHist[i] })
-        y += 7
-
+        sectionTitle('Historique des traitements', GRIS)
+        const colW = [50, 28, 92]
+        tableHeader(['Medicament', 'Dosage', 'Periode'], colW, GRIS)
         medsHistorique.forEach((med, idx) => {
-          checkPage(7)
-          rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
-          xc = margin + 2
-          const row = [med.nom, med.dosage, formatDate(med.date_debut), formatDate(med.date_fin)]
-          row.forEach((v, i) => {
-            txt(v, xc, y + 4.5, 7.5, i === 0 ? NOIR : GRIS, i === 0 ? 'bold' : 'normal', cHist[i] - 2)
-            xc += cHist[i]
-          })
-          y += 6.5
+          const periode = `${formatDateCourt(med.date_debut)}  ->  ${formatDateCourt(med.date_fin)}`
+          tableRow([
+            { text: med.nom, style: 'bold' },
+            { text: med.dosage, color: GRIS_TEXTE },
+            { text: periode, color: GRIS_TEXTE },
+          ], colW, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
         })
         y += 6
       }
@@ -301,7 +339,6 @@ function Rapport() {
       const typesUniques = [...new Set(analysesFiltrees.map(a => a.type))]
       if (typesUniques.length > 0) {
         sectionTitle('Resume des dernieres valeurs', VERT)
-
         const bW = (contentW - 4) / 2
         let col = 0
         let rowY = y
@@ -315,13 +352,10 @@ function Rapport() {
           if (col === 0) { checkPage(20); rowY = y }
 
           rect(x, rowY, bW, 18, anormal ? [255, 245, 245] : GRIS_CLAIR, 3)
-          txt(type, x + 3, rowY + 6, 8, NOIR, 'bold', bW - 28)
+          txt(truncate(type, bW - 30, 8, 'bold'), x + 3, rowY + 6, 8, NOIR, 'bold')
           const valStr = `${last.valeur} ${last.unite || ''}`
-          pdf.setFontSize(9)
-          pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(...(anormal ? ROUGE : VERT))
-          const valW = pdf.getTextWidth(valStr)
-          pdf.text(valStr, x + bW - valW - 3, rowY + 6)
+          pdf.setFontSize(9); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...(anormal ? ROUGE : VERT))
+          pdf.text(valStr, x + bW - pdf.getTextWidth(valStr) - 3, rowY + 6)
 
           if (last.normal_min !== null && last.normal_max !== null) {
             const pct = Math.min(1, Math.max(0, last.valeur / last.normal_max))
@@ -340,41 +374,34 @@ function Rapport() {
       // ===== BILANS DÉTAILLÉS =====
       if (groupes.length > 0) {
         sectionTitle('Bilans sanguins detailles', VERT)
+        const colW = [52, 22, 20, 42, 28]
 
         groupes.forEach(([date, valeurs]) => {
           checkPage(22)
           const nbAn = valeurs.filter(v => isAnormal(v.valeur, v.normal_min, v.normal_max)).length
 
           rect(margin, y, contentW, 7.5, GRIS_CLAIR, 2)
-          txt(formatDate(date), margin + 3, y + 5.5, 9, NOIR, 'bold')
+          txt(formatDate(date), margin + 3, y + 5.3, 9, NOIR, 'bold')
           if (nbAn > 0) {
             rect(margin + contentW - 40, y + 1.5, 38, 5, [254, 226, 226], 2)
-            txt(`⚠ ${nbAn} anormal${nbAn > 1 ? 'aux' : ''}`, margin + contentW - 39, y + 5.5, 7.5, ROUGE, 'bold')
+            txt(`${nbAn} anormal${nbAn > 1 ? 'aux' : ''}`, margin + contentW - 37, y + 5, 7.5, ROUGE, 'bold')
           } else {
             rect(margin + contentW - 28, y + 1.5, 26, 5, [209, 250, 229], 2)
-            txt('✓ Tout normal', margin + contentW - 27, y + 5.5, 7.5, VERT, 'bold')
+            txt('Tout normal', margin + contentW - 25, y + 5, 7.5, VERT, 'bold')
           }
           y += 7.5
 
-          rect(margin, y, contentW, 6.5, VERT)
-          const cAn = [52, 22, 20, 42, 28]
-          const hAn = ['Analyse', 'Valeur', 'Unite', 'Plage normale', 'Statut']
-          let xc = margin + 2
-          hAn.forEach((h, i) => { txt(h, xc, y + 4.8, 7.5, BLANC, 'bold'); xc += cAn[i] })
-          y += 6.5
-
+          tableHeader(['Analyse', 'Valeur', 'Unite', 'Plage normale', 'Statut'], colW, VERT)
           valeurs.forEach((a, idx) => {
-            checkPage(6.5)
             const an = isAnormal(a.valeur, a.normal_min, a.normal_max)
-            rect(margin, y, contentW, 6.5, an ? [255, 245, 245] : idx % 2 === 0 ? BLANC : GRIS_CLAIR)
-            xc = margin + 2
-            const row = [a.type, String(a.valeur), a.unite || '—', a.normal_min !== null ? `${a.normal_min}-${a.normal_max}` : '—', an ? '⚠ Anormal' : '✓ Normal']
-            row.forEach((v, i) => {
-              const c = i === 1 || i === 4 ? (an ? ROUGE : VERT) : NOIR
-              txt(v, xc, y + 4.6, 7.5, c, i === 1 || i === 4 ? 'bold' : 'normal', cAn[i] - 2)
-              xc += cAn[i]
-            })
-            y += 6.5
+            const statutColor = an ? ROUGE : VERT
+            tableRow([
+              { text: a.type },
+              { text: a.valeur, color: statutColor, style: 'bold' },
+              { text: a.unite },
+              { text: a.normal_min !== null ? `${a.normal_min} - ${a.normal_max}` : '—' },
+              { text: an ? 'Anormal' : 'Normal', color: statutColor, style: 'bold' },
+            ], colW, an ? [255, 245, 245] : idx % 2 === 0 ? BLANC : GRIS_CLAIR)
           })
           y += 5
         })
@@ -383,25 +410,16 @@ function Rapport() {
       // ===== SYMPTÔMES =====
       if (symptomesFiltres.length > 0) {
         sectionTitle('Symptomes', ORANGE)
-
-        rect(margin, y, contentW, 6.5, ORANGE, 2)
-        const cSym = [42, 58, 22, 58]
-        const hSym = ['Date', 'Symptome', 'Int.', 'Note']
-        let xc = margin + 2
-        hSym.forEach((h, i) => { txt(h, xc, y + 4.8, 7.5, BLANC, 'bold'); xc += cSym[i] })
-        y += 6.5
-
+        const colW = [40, 52, 20, 68]
+        tableHeader(['Date', 'Symptome', 'Int.', 'Note'], colW, ORANGE)
         symptomesFiltres.forEach((s, idx) => {
-          checkPage(6.5)
-          rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : [255, 251, 235])
-          xc = margin + 2
-          const row = [formatDate(s.date), s.type, `${s.intensite}/5`, s.note || '—']
-          row.forEach((v, i) => {
-            const c = i === 2 ? (s.intensite >= 4 ? ROUGE : s.intensite === 3 ? ORANGE : VERT) : NOIR
-            txt(v, xc, y + 4.6, 7.5, c, i === 2 ? 'bold' : 'normal', cSym[i] - 2)
-            xc += cSym[i]
-          })
-          y += 6.5
+          const intColor = s.intensite >= 4 ? ROUGE : s.intensite === 3 ? ORANGE : VERT
+          tableRow([
+            { text: formatDateCourt(s.date) },
+            { text: s.type, style: 'bold' },
+            { text: `${s.intensite}/5`, color: intColor, style: 'bold' },
+            { text: s.note },
+          ], colW, idx % 2 === 0 ? BLANC : [255, 251, 235])
         })
         y += 6
       }
@@ -410,57 +428,47 @@ function Rapport() {
       if (sportFiltres.length > 0) {
         sectionTitle('Activite physique', VIOLET)
 
-        const dureeTotale = sportFiltres.reduce((sum, s) => sum + (Number(s.duree) || 0), 0)
-        const distanceTotale = sportFiltres.reduce((sum, s) => sum + (Number(s.distance) || 0), 0)
+        const totalSeances = sportFiltres.length
+        const totalDist = sportFiltres.reduce((sum, s) => sum + (Number(s.distance) || 0), 0)
+        const totalDuree = sportFiltres.reduce((sum, s) => sum + (Number(s.duree) || 0), 0)
         const ressentis = sportFiltres.map(s => Number(s.sensation_ventre)).filter(v => !Number.isNaN(v))
-        const ressentiMoyen = ressentis.length ? (ressentis.reduce((a, b) => a + b, 0) / ressentis.length) : null
+        const ressentiMoy = ressentis.length ? ressentis.reduce((a, b) => a + b, 0) / ressentis.length : null
 
-        // Mini-cartes de synthèse
-        const statsSport = [
-          { label: 'Seances', valeur: String(sportFiltres.length) },
-          { label: 'Duree totale', valeur: formatDuree(dureeTotale) },
-          { label: 'Distance', valeur: distanceTotale > 0 ? `${distanceTotale.toFixed(1)} km` : '—' },
-          { label: 'Ressenti moyen', valeur: ressentiMoyen !== null ? `${ressentiMoyen.toFixed(1)}/5` : '—' },
+        const synth = [
+          { label: 'Seances', val: totalSeances },
+          { label: 'Distance', val: totalDist > 0 ? `${totalDist.toFixed(1)} km` : '—' },
+          { label: 'Duree totale', val: formatDuree(totalDuree) },
+          { label: 'Ressenti ventre', val: ressentiMoy !== null ? `${ressentiMoy.toFixed(1)}/5` : '—' },
         ]
         const sW = (contentW - 9) / 4
-        statsSport.forEach((c, i) => {
+        synth.forEach((c, i) => {
           const x = margin + i * (sW + 3)
-          rect(x, y, sW, 18, [237, 233, 254], 3)
-          txt(c.valeur, x + 3, y + 9, 11, VIOLET, 'bold', sW - 5)
-          txt(c.label, x + 3, y + 15, 7, GRIS)
+          rect(x, y, sW, 16, GRIS_CLAIR, 3)
+          txt(String(c.val), x + 3, y + 8, 11, VIOLET, 'bold')
+          txt(c.label, x + 3, y + 13.5, 6.5, GRIS)
         })
-        y += 24
+        y += 22
 
-        // Répartition par type de sport
         const parType = {}
         sportFiltres.forEach(s => {
-          const t = s.sport || 'Autre'
-          if (!parType[t]) parType[t] = { nb: 0, duree: 0, distance: 0 }
-          parType[t].nb++
-          parType[t].duree += Number(s.duree) || 0
-          parType[t].distance += Number(s.distance) || 0
+          const key = s.sport || 'Autre'
+          if (!parType[key]) parType[key] = { nb: 0, distance: 0, duree: 0 }
+          parType[key].nb++
+          parType[key].distance += Number(s.distance) || 0
+          parType[key].duree += Number(s.duree) || 0
         })
-        const typesSport = Object.entries(parType).sort((a, b) => b[1].nb - a[1].nb)
+        const typesTries = Object.entries(parType).sort((a, b) => b[1].nb - a[1].nb)
 
-        if (typesSport.length > 0) {
-          checkPage(14)
-          rect(margin, y, contentW, 6.5, VIOLET, 2)
-          const cSp = [66, 28, 46, 40]
-          const hSp = ['Type', 'Seances', 'Duree', 'Distance']
-          let xc = margin + 2
-          hSp.forEach((h, i) => { txt(h, xc, y + 4.8, 7.5, BLANC, 'bold'); xc += cSp[i] })
-          y += 6.5
-
-          typesSport.forEach(([type, d], idx) => {
-            checkPage(6.5)
-            rect(margin, y, contentW, 6.5, idx % 2 === 0 ? BLANC : [245, 243, 255])
-            xc = margin + 2
-            const row = [type, String(d.nb), formatDuree(d.duree), d.distance > 0 ? `${d.distance.toFixed(1)} km` : '—']
-            row.forEach((v, i) => {
-              txt(v, xc, y + 4.6, 7.5, i === 0 ? NOIR : GRIS, i === 0 ? 'bold' : 'normal', cSp[i] - 2)
-              xc += cSp[i]
-            })
-            y += 6.5
+        if (typesTries.length > 0) {
+          const colW = [70, 30, 45, 35]
+          tableHeader(['Activite', 'Seances', 'Distance', 'Duree'], colW, VIOLET)
+          typesTries.forEach(([type, d], idx) => {
+            tableRow([
+              { text: type, color: [109, 40, 217], style: 'bold' },
+              { text: String(d.nb) },
+              { text: d.distance > 0 ? `${d.distance.toFixed(1)} km` : '—' },
+              { text: formatDuree(d.duree) },
+            ], colW, idx % 2 === 0 ? BLANC : GRIS_CLAIR)
           })
           y += 6
         }
@@ -472,9 +480,7 @@ function Rapport() {
         pdf.setPage(i)
         rect(0, pageH - 10, pageW, 10, GRIS_CLAIR)
         txt('CrohnTrack — Cree par Damien Chereau — Ne remplace pas un avis medical', margin, pageH - 4, 6.5, GRIS)
-        pdf.setFontSize(7)
-        pdf.setTextColor(...GRIS)
-        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(7); pdf.setTextColor(...GRIS); pdf.setFont('helvetica', 'bold')
         pdf.text(`Page ${i} / ${total}`, pageW - margin, pageH - 4)
       }
 
@@ -487,9 +493,9 @@ function Rapport() {
 
   const analysesFiltrees = filtrer(analyses)
   const symptomesFiltres = filtrer(symptomes)
-  const sportFiltres = filtrer(sport)
   const evenementsFiltres = filtrerEvenements(evenements)
-  const medsEnCours = medicaments.filter(m => !m.date_fin)
+  const medsEnCours = medicaments.filter(estEnCours)
+  const evenementsHorsPeriode = evenements.length - evenementsFiltres.length
   const groupes = (() => {
     const g = {}
     analysesFiltrees.forEach(a => { if (!g[a.date]) g[a.date] = []; g[a.date].push(a) })
@@ -529,16 +535,26 @@ function Rapport() {
               className="w-full bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:border-emerald-500 outline-none" />
           </div>
         </div>
+        {evenementsHorsPeriode > 0 && (
+          <div className="mt-4 flex items-start gap-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/30 rounded-xl px-4 py-3">
+            <span className="text-lg">ℹ️</span>
+            <p className="text-indigo-700 dark:text-indigo-300 text-sm">
+              {evenementsHorsPeriode} événement{evenementsHorsPeriode > 1 ? 's' : ''} médical{evenementsHorsPeriode > 1 ? 'aux' : ''} en dehors de la période sélectionnée
+              {' '}(ex. hospitalisation). Élargis la <strong>date de début</strong> pour l'inclure dans le rapport.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm dark:shadow-none">
         <h3 className="font-bold text-slate-900 dark:text-white mb-6">👁️ Aperçu du rapport</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           {[
             { label: 'Bilans', valeur: groupes.length, couleur: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
             { label: 'Anomalies', valeur: anormauxTotal.length, couleur: anormauxTotal.length > 0 ? 'text-red-500' : 'text-emerald-500', bg: anormauxTotal.length > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20' },
             { label: 'Symptômes', valeur: symptomesFiltres.length, couleur: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
             { label: 'Traitements', valeur: medsEnCours.length, couleur: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
+            { label: 'Événements', valeur: evenementsFiltres.length, couleur: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
           ].map(item => (
             <div key={item.label} className={`${item.bg} rounded-2xl p-5 text-center`}>
               <p className={`text-3xl font-bold ${item.couleur}`}>{item.valeur}</p>
@@ -546,22 +562,9 @@ function Rapport() {
             </div>
           ))}
         </div>
-
-        {/* Ligne secondaire : événements & sport sur la période */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-5 text-center">
-            <p className="text-3xl font-bold text-indigo-500">{evenementsFiltres.length}</p>
-            <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">Événements médicaux</p>
-          </div>
-          <div className="bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-5 text-center">
-            <p className="text-3xl font-bold text-violet-500">{sportFiltres.length}</p>
-            <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">Séances de sport</p>
-          </div>
-        </div>
-
         <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-5 text-center">
           <p className="text-slate-500 dark:text-gray-400 text-sm mb-4">
-            Le PDF inclut : entête avec tes informations, résumé des valeurs, événements médicaux, traitements (en cours + historique), bilans détaillés, symptômes et activité physique.
+            Le PDF inclut : entête avec tes informations, événements médicaux, traitements (en cours et historique), résumé des valeurs, bilans détaillés, symptômes et activité physique.
           </p>
           <button onClick={generatePDF} disabled={generating}
             className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50">
