@@ -33,12 +33,14 @@ function Assistant() {
     { data: analyses },
     { data: symptomes },
     { data: repas },
-    { data: medicaments }
+    { data: medicaments },
+    { data: evenements }
   ] = await Promise.all([
     supabase.from('analyses').select('*').order('date', { ascending: false }).limit(15),
     supabase.from('symptomes').select('*').gte('date', il_y_a_60_jours).order('date', { ascending: false }).limit(15),
     supabase.from('repas').select('*').gte('date', il_y_a_60_jours).order('date', { ascending: false }).limit(20),
-    supabase.from('medicaments').select('*')
+    supabase.from('medicaments').select('*'),
+    supabase.from('evenements_medicaux').select('*').order('date_debut', { ascending: false }).limit(10)
   ])
 
   const analysesAnormales = (analyses || []).filter(a =>
@@ -50,7 +52,7 @@ function Assistant() {
 
   const contexteTexte = `
 ANALYSES RÉCENTES :
-${(analyses || []).slice(0, 10).map(a => `- ${a.type}: ${a.valeur} ${a.unite || ''} (${new Date(a.date).toLocaleDateString('fr-FR')})`).join('\n')}
+${(analyses || []).slice(0, 10).map(a => `- ${a.type}: ${a.valeur} ${a.unite || ''} (${new Date(a.date).toLocaleDateString('fr-FR')})`).join('\n') || '- Aucune'}
 
 ANALYSES ANORMALES :
 ${analysesAnormales.length > 0
@@ -66,8 +68,11 @@ ${(repas || []).slice(0, 15).map(r => `- ${r.moment}: ${r.aliments} — réactio
 REPAS AVEC RÉACTIONS :
 ${repasAvecReaction.slice(0, 5).map(r => `- ⚠️ ${r.aliments} → ${r.reaction}`).join('\n') || '- Aucune'}
 
-TRAITEMENTS :
+TRAITEMENTS EN COURS :
 ${(medicaments || []).map(m => `- ${m.nom} ${m.dosage || ''} (${m.frequence || ''})`).join('\n') || '- Aucun'}
+
+ÉVÉNEMENTS MÉDICAUX :
+${(evenements || []).map(e => `- ${e.titre} le ${new Date(e.date_debut).toLocaleDateString('fr-FR')}${e.date_fin ? ` → ${new Date(e.date_fin).toLocaleDateString('fr-FR')}` : ''}${e.resultats ? ` | ${e.resultats.substring(0, 150)}` : ''}`).join('\n') || '- Aucun'}
 `
   setContexte(contexteTexte)
   setLoadingContexte(false)
@@ -222,7 +227,7 @@ ${(medicaments || []).map(m => `- ${m.nom} ${m.dosage || ''} (${m.frequence || '
             <div className="bg-emerald-50 dark:bg-green-500/10 border border-emerald-200 dark:border-green-500/30 rounded-2xl p-4">
               <p className="text-emerald-700 dark:text-green-400 text-sm font-medium mb-1">🤖 Assistant Crohn</p>
               <p className="text-slate-700 dark:text-gray-300 text-sm">
-                Bonjour ! Je suis ton assistant spécialisé Crohn. J'ai accès à tes analyses, symptômes, repas et activités sportives des <strong>90 derniers jours</strong>.
+                Bonjour ! Je suis ton assistant spécialisé Crohn. J'ai accès à tes analyses, symptômes, repas et activités sportives des <strong>60 derniers jours</strong>.
                 {memoire && " Je me souviens aussi de nos conversations précédentes. 🧠"}
                 {" "}Pose-moi n'importe quelle question sur ton alimentation, tes analyses ou ta santé ! 💚
               </p>

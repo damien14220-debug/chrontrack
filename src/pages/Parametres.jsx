@@ -28,7 +28,7 @@ const NAV_DEFAULT = [
   { id: 'statistiques', label: 'Stats', icon: '📈' },
   { id: 'symptomes', label: 'Symptômes', icon: '🤒' },
   { id: 'repas', label: 'Repas', icon: '🍽️' },
-  { id: 'medicaments', label: 'Médocs', icon: '💊' },
+  { id: 'suivimedical', label: 'Médical', icon: '🏥' },
   { id: 'sport', label: 'Sport', icon: '🏃' },
   { id: 'journal', label: 'Journal', icon: '📓' },
   { id: 'rapport', label: 'Rapport', icon: '📄' },

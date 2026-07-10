@@ -6,7 +6,7 @@ import Analyses from './pages/Analyses'
 import Statistiques from './pages/Statistiques'
 import Symptomes from './pages/Symptomes'
 import Repas from './pages/Repas'
-import Medicaments from './pages/Medicaments'
+import SuiviMedical from './pages/SuiviMedical'
 import Rapport from './pages/Rapport'
 import Parametres from './pages/Parametres'
 import Sport from './pages/Sport'
@@ -20,7 +20,7 @@ const NAV_DEFAULT = [
   { id: 'statistiques', label: 'Stats', icon: '📈' },
   { id: 'symptomes', label: 'Symptômes', icon: '🤒' },
   { id: 'repas', label: 'Repas', icon: '🍽️' },
-  { id: 'medicaments', label: 'Médocs', icon: '💊' },
+  { id: 'suivimedical', label: 'Médical', icon: '🏥' },
   { id: 'sport', label: 'Sport', icon: '🏃' },
   { id: 'journal', label: 'Journal', icon: '📓' },
   { id: 'rapport', label: 'Rapport', icon: '📄' },
@@ -86,7 +86,7 @@ function App() {
       case 'statistiques': return <Statistiques />
       case 'symptomes': return <Symptomes />
       case 'repas': return <Repas />
-      case 'medicaments': return <Medicaments />
+      case 'suivimedical': return <SuiviMedical />
       case 'sport': return <Sport />
       case 'journal': return <Journal />
       case 'rapport': return <Rapport />
